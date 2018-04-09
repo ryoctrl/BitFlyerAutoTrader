@@ -105,8 +105,10 @@ function firstBot () {
   }
 }
 
+// ついでに取引所の稼働状況も確認しておく
+getHealth();
+// メイン
 firstBot();
-
 
 // 取引所の稼動状態を確認
 function getHealth () {
@@ -119,4 +121,3 @@ function getHealth () {
   });
 }
 
-getHealth();
