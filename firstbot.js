@@ -88,7 +88,8 @@ function simpleBotTrade (signal) {
       request(options, function (err, response, payload) {
         console.log('シグナル:', signal, ' 0.001 BTC');
         console.log('ポジション:', position);
-        console.log(JSON.parse(payload));
+        // TODO: undefinedが帰ってくるときにparse errorが発生するので修正
+        console.log(JSON.parse(payload)); 
       });
     }
   }, 60 * 1000);
