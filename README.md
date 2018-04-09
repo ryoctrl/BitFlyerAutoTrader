@@ -2,7 +2,7 @@
 
 https://note.mu/tonacoin で紹介しているbitflyerでの仮想通貨取引botのサンプルコードです。
 
-Twitter: [@tonacoin](https://twitter.com/tonacoin) または [@tonaspace](https://twitter.com/tonacoin)
+Twitter: [@tonacoin](https://twitter.com/tonacoin) または [@tonaspace](https://twitter.com/tonaspace)
 
 BTC: 3A74wWSxvwva5og6AaRFm3VCBYu5wxcfFz
 
