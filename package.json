@@ -10,6 +10,11 @@
     "url": "https://github.com/tonaspace/tona-bitflyer-bot/issues"
   },
   "devDependencies": {
-    "mocha": "^5.0.5"
+    "mocha": "^5.0.5",
+    "moment": "^2.22.0",
+    "r2": "^2.0.1"
+  },
+  "dependencies": {
+    "technicalindicators": "^1.1.10"
   }
 }

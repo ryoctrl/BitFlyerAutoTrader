@@ -3,7 +3,7 @@ var request = require('request');
 var crypto = require('crypto');
 var fs = require('fs');
 // シークレットな情報
-var SECRET = JSON.parse(fs.readFileSync('../../secret.json', 'utf8'));
+var SECRET = JSON.parse(fs.readFileSync('secret.json', 'utf8'));
 
 var API_KEY = SECRET.apiKey;
 var API_SECRET = SECRET.apiSecret;
@@ -19,7 +19,7 @@ function randomTrade (signal) {
   order.size = 0.001;
   // 1分毎にポジションを移行する
   setInterval(() => {
-    signal = getSimpleSignal(position);
+    signal = getRandomSignal(position);
     position = getNextPosition(position, signal);
     if (signal === 'BUY' || signal === 'SELL') {
       order.side = signal;
@@ -44,7 +44,11 @@ function randomTrade (signal) {
         console.log('シグナル:', signal, ' 0.001 BTC');
         console.log('ポジション:', position);
         // TODO: undefinedが帰ってくるときにparse errorが発生するので修正
-        console.log(JSON.parse(payload)); 
+        try {
+          console.log(JSON.parse(payload));
+        } catch (error) {
+          console.log(error);
+        }
       });
     }
   }, 60 * 1000);
@@ -53,7 +57,7 @@ function randomTrade (signal) {
 function randomBot () {
   var mode = process.argv[2];
   if (mode === 'trade') { // Take care
-    randomBotTrade();
+    randomTrade();
   } else {
     console.log('Invalid args!'); // コマンドライン引数が間違っているとき
   }

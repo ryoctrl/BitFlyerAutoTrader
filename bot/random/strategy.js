@@ -2,13 +2,13 @@ var RandomConfig = require('./random_config.js')
 var RANDOM_LIMIT = RandomConfig.strategy.randomLimit;
 var GREEDY = RandomConfig.strategy.greedy;
 
-function getSignal (position) {
+function getRandomSignal (position) {
   if (position === 'LONG') return 'SELL';
   if (position === 'SHORT') return 'BUY';
   if (position === 'CLOSED') { // ノーポジをとりあえずCLOSEDと呼ぶ
     // ポジションを持っていないとき、ランダムで売買かノーポジを続ける
     randomValue = Math.random();
-    if (randomValue < RANDOME_LIMIT) {
+    if (randomValue < RANDOM_LIMIT) {
       return 'BUY';
     } else if (randomValue > 1 - RANDOM_LIMIT) {
       return 'SELL';
@@ -45,3 +45,7 @@ function getNextPosition (position, signal) {
   
   throw new Error('Error in RandomStrategy: getNextPosition');
 }
+
+
+module.exports.getRandomSignal = getRandomSignal;
+module.exports.getNextPosition = getNextPosition;

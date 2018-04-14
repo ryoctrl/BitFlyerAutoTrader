@@ -1,3 +1,4 @@
+var request = require('request');
 // 取引所の稼動状態を確認
 function getHealth () {
   var path = '/v1/gethealth';
