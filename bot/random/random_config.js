@@ -4,9 +4,15 @@ exports.strategy = {
 }
 
 exports.simulator = {
-  amount: 0.01, // 1回に取引するBTC
+  amount: 1.0, // 1回に取引するBTC
   loopTime: 60, // 秒単位
   // TODO: 想定損益の幅
+}
+
+exports.backtest = {
+  amount: 1.0,
+  candleSize: 15, // 15分足
+  historyCount: 4 * 24, // バックテスト対象のローソク足の数
 }
 
 // 本番
