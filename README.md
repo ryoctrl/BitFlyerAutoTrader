@@ -14,11 +14,11 @@ npm install
 ```
 node cryptowatch/cwsample.js
 ```
-動作のシミュレーションをする
+動作のシミュレーションをする
 ```
 node bot/random/simulator.js
 ```
-など
+など
 
 Twitter: [@tonacoin](https://twitter.com/tonacoin) または [@tonaspace](https://twitter.com/tonaspace)
 
