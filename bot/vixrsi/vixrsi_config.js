@@ -6,12 +6,12 @@ exports.vixStrategyConf = {
   lb: 50, // Look Back Period Percentile High
   ph: 0.85, // Highest Percentile
   pl: 1.01, // Lowest Percentile, 1.10=90%, 1.05=95%, 1.01=99%"
-  greedy: false,
+  greedy: true,
 }
 
 exports.vixSimulatorConf = {
   candleSize: 1,
-  greedy: false,
+  greedy: true,
   amount: 0.1, // 1回に取引するBTC
   loopTime: 60, // 秒単位
   // TODO: 想定損益の幅
@@ -19,7 +19,7 @@ exports.vixSimulatorConf = {
 
 exports.backtest = {
   amount: 0.1,
-  candleSize: 1, // n分足、60がおすすめ
+  candleSize: 60, // n分足、今のところ60がおすすめ
   historyCount: 8 * 48, // バックテスト対象のローソク足の数。pd + lbより大きい必要がある
 }
 
