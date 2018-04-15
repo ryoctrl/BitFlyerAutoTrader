@@ -22,7 +22,7 @@ function randomBotSimulate () {
       }
       console.log('----------');
       // TODO: CLOSEしたときに想定利益、総利益、利益率、勝率を表示
-    }, LOOP_TIME * 100);
+    }, LOOP_TIME * 1000);
   } catch (err) {
     console.log(err);
   }
