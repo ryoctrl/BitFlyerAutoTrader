@@ -31,7 +31,7 @@ async function backtestEasy () {
   var closeTimeHist = CwUtil.getTimes(ohlcHist); // 終了時刻のタイムスタンプ
 
   // 売買による損益を計算
-  for (var i = 0; i < historyCount; i++) {
+  for (var i = 1; i < historyCount; i++) {
     // 対象とするローソク足の切り出し
     var ohlcTarget = ohlcHist.slice(i, i + pd + lb);
     signal = Strategy.vixRsiSignal(ohlcTarget, position);
@@ -39,17 +39,21 @@ async function backtestEasy () {
     amount = VIXConfig.backtest.amount
     // 売買に関する履歴
     // 始値で売買したことにする
-    if (position === 'CLOSED' && signal === 'BUY') {
+    if (signal === 'BUY') {
+      entryTime = moment(closeTimeHist[i-1]).format(('YYYY/MM/DD HH:mm:ss'));
+      console.log('【LONG】', entryTime);
       longPrice = openHist[i];
     }
-    if (position === 'CLOSED' && signal === 'SELL') {
+    if (signal === 'SELL') {
+      entryTime = moment(closeTimeHist[i-1]).format(('YYYY/MM/DD HH:mm:ss'));
+      console.log('【SHORT】', entryTime);
       shortPrice = openHist[i];
     }
     // ポジションを解消したときに損益を計算する
     if (position === 'LONG' && signal === 'EXIT') {
       profit = amount * (openHist[i] - longPrice); // 売値 > 買値のとき利益
       // 終了時刻基準になっているので -1 する
-      exitTime = moment(closeTimeHist[i-1]).format(('YYYY/MM/DD HH:mm:ss'));;
+      exitTime = moment(closeTimeHist[i-1]).format(('YYYY/MM/DD HH:mm:ss'));
       console.log('【利確／損切時刻】', exitTime, '【利益】', profit); 
       totalProfit += profit;
       if (profit > 0) {
@@ -58,7 +62,7 @@ async function backtestEasy () {
       totalCount++;
       longPrice = 0;
     }
-    if (signal === 'SELL' && signal === 'EXIT') {
+    if (position === 'SHORT' && signal === 'EXIT') {
       profit = amount * (shortPrice - openHist[i]); // 売値 > 買値のとき利益
       // 終了時刻基準になっているので -1 する
       exitTime = moment(closeTimeHist[i-1]).format(('YYYY/MM/DD HH:mm:ss'));;

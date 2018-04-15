@@ -70,8 +70,15 @@ function vixRsiSignal(ohlc, position) {
   } 
 
   // Signals
-  // 基本的にこっちを使うほうが安全
   if (!VIX.greedy) {
+    if (upSignal && (position === 'SHORT')) return 'EXIT';
+    if (upSignal && (position === 'CLOSED')) return 'BUY';
+    if (downSignal && (position === 'LONG')) return 'EXIT';
+    if (downSignal && (position === 'CLOSED')) return 'SELL';
+    if (exitSignal) return 'EXIT';
+  }
+  // 基本的にこっちを使う
+  if (VIX.greedy) {
     if (upSignal && (position === 'SHORT')) return 'EXIT';
     if (upSignal) return 'BUY';
     if (downSignal && (position === 'LONG')) return 'EXIT';
@@ -79,24 +86,24 @@ function vixRsiSignal(ohlc, position) {
     if (exitSignal) return 'EXIT';
   }
 
-  /* 
-  // risky
-  if (VIX.greedy) {
-    if (upSignal) return 'BUY';
-    if (downSignal) return 'SELL';
-    if (exitSignal) return 'EXIT';
-  }
-  */
   return 'HOLD'
 }
 
-// non-greedy
 function getNextPosition (position, signal) {
-  if (position === 'LONG') return 'CLOSED';
-  if (position === 'SHORT') return 'CLOSED';
-  if (position === 'CLOSED' && signal === 'BUY') return 'LONG';
-  if (position === 'CLOSED' && signal === 'SELL') return 'SHORT';
-  if (signal === 'HOLD') return position;
+  if (!VIX.greedy) {
+    if (position === 'LONG' && signal === 'EXIT') return 'CLOSED';
+    if (position === 'SHORT' && signal === 'EXIT') return 'CLOSED';
+    if (position === 'CLOSED' && signal === 'BUY') return 'LONG';
+    if (position === 'CLOSED' && signal === 'SELL') return 'SHORT';
+    if (signal === 'HOLD') return position;
+  }
+  // 基本的にこっちを使う
+  if (VIX.greedy) {
+    if (signal === 'EXIT') return 'CLOSED';
+    if (signal === 'BUY') return 'LONG';
+    if (signal === 'SELL') return 'SHORT';
+    if (signal === 'HOLD') return position;
+  }
   // ここは通らないはず!
   console.log('Error in getNextPosition function!');
 }
