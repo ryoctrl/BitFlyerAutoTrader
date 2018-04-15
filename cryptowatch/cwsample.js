@@ -1,4 +1,3 @@
-var CwConfig = require('./cwconfig.js');
 var CwUtil = require('./cwutil.js');
 var moment = require('moment');
 
@@ -18,7 +17,6 @@ async function highLowSample () {
   var timestamps = CwUtil.getTimes(candles)
   var highs = CwUtil.getHighs(candles)
   var lows = CwUtil.getLows(candles)
-  console.log(moment(timestamps[i]))
   for (var i = 0; i < candles.length; i++) {
     t = moment(timestamps[i]).format(('YYYY/MM/DD HH:mm:ss'));
     console.log('終了時刻:', t, '高値:', highs[i], '安値:', lows[i]);
