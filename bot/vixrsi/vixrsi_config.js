@@ -26,7 +26,7 @@ exports.backtest = {
 // 本番
 // TODO: コメントをREADMEに切り出し
 exports.trader = {
-  amount: 0.001, // 1回のトレードの取引枚数。
+	amount: 0.01, //トレードの単位当たりの発注数
   candleSize: 1, // n分足、本番では60がおすすめ
   delay: 10, // TODO: 注文を開始するまでにdelay秒待つ
   entryType: 'LIMIT', // LIMIT: 指値, MARKET: 成行

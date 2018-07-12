@@ -1,13 +1,10 @@
 {
   "name": "tona-bitflyer-bot",
   "version": "0.0.1",
-  "description": "https://note.mu/tonacoin で紹介しているbitflyerでの仮想通貨取引botのサンプルコードです。",
-  "author": "tona",
+  "description": "",
+  "author": "",
   "scripts": {
     "test": "mocha"
-  },
-  "bugs": {
-    "url": "https://github.com/tonaspace/tona-bitflyer-bot/issues"
   },
   "devDependencies": {
     "mocha": "^5.0.5",
@@ -15,6 +12,10 @@
     "r2": "^2.0.1"
   },
   "dependencies": {
+    "@types/config": "0.0.34",
+    "@types/log4js": "^2.3.5",
+    "config": "^1.30.0",
+    "log4js": "^2.10.0",
     "technicalindicators": "^1.1.10"
   }
 }

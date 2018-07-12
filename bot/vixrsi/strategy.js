@@ -10,6 +10,24 @@ const WEMA = require('technicalindicators').WEMA; // Wilders Smoothing
 const VIXConfig = require('./vixrsi_config.js');
 const VIX = VIXConfig.vixStrategyConf;
 
+const vixRsiSignalSelf = (ohlc, position) {
+	//ohlcをリバース
+	const openRev = CwUtil.getOpens(ohlc).reverse();
+	const highRev = CwUtil.getHighs(ohlc).reverse();
+	const lowRev = CwUtil.getLows(ohlc).reverse();
+	const closeRev = CwUtil.getLows(ohlc).reverse();
+
+	let wvf = []; //Williams Vix Fix
+	//合計の長さの最小はlb + pd e.g. 72 closeRev.length > lb + pb
+	for(let i in VIX.lb) {
+		let closeMax = Math.max.apply(null, closeRev.slice(i, i + VIX.pd));
+		wvf[i] = (closeMax - lowRev[i]) / closeMax * 100;
+	}
+
+	
+	
+}
+
 function vixRsiSignal(ohlc, position) {
   // ohlcを使いやすい形に変更
   const openRev = CwUtil.getOpens(ohlc).reverse();
@@ -58,6 +76,7 @@ function vixRsiSignal(ohlc, position) {
   const abody = SMA.calculate({period : body.length, values : body})[0]; // ただの平均
   var upSignal = (wvf[0] >= upperBand || wvf[0] >= rangeHigh) && (fastRsi < VIX.limit) && (closeRev[0] < openRev[0]);
   var downSignal = (wvf[0] >= upperBand || wvf[0] >= rangeHigh) && (fastRsi > (100 - VIX.limit)) && (closeRev[0] > openRev[0]);
+	console.log(`up:${upSignal}, down:${downSignal}`);
   var exitSignal = false;
   if (position === 'LONG') {
     if (closeRev[0] > openRev[0] && body[0] > abody / 3) {
