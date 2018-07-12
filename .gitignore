@@ -1,5 +1,6 @@
 secret.json
 secret/
 node_modules/
+logs/
 package-lock.json
 *.code-workspace
