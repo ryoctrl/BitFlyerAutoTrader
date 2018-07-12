@@ -2,3 +2,4 @@ secret.json
 secret/
 node_modules/
 package-lock.json
+*.code-workspace
