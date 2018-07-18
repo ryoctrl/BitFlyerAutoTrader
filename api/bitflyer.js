@@ -1,4 +1,5 @@
 const r2 = require('r2');
+const fetch = require('node-fetch');
 const crypto = require('crypto');
 const Secret = require('../secret.json');
 
@@ -42,22 +43,15 @@ class BitFlyer {
 	//板情報を取得
 	async getBoard() {
 		let method = 'GET';
-		let path = '/v1/board';
+		let path = '/v1/board?product_code=FX_BTC_JPY';
 		return await this.sendPublicRequest(method, path, null);
 	}
 
 	//TODO: PublicAPIを正常に取得できるようにする
 	async sendPublicRequest(method, path, body) {
-		let uri = URL + path;
-		let options = {
-			url: uri,
-			method: method,
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		}
-		let res = await r2(uri);
-		return res;
+		let url = URL + path;
+		let res = await fetch(url);
+		return res.json();
 	}
 
 	async sendRequest(method, path, body) {
