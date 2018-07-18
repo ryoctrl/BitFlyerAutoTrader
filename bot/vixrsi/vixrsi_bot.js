@@ -77,7 +77,7 @@ const getMaxPosition = async () => {
 };
 
 // 変更点: メインの処理を関数に切り出し
-async function vixRSITrade () {
+const vixRSITrade = async () => {
 	//現在のポジション
 	let position = 'CLOSED';
 	//Strategyから渡されるシグナル
@@ -210,11 +210,10 @@ async function vixRSITrade () {
 	} catch(error) {
 		console.log(error);
 	}
-}
+};
 
 
-
-function displayJson(json) {
+const displayJson = (json) => {
 	try {
 		console.log(JSON.parse(json));
 		let jsonObj = JSON.parse(json);
@@ -222,7 +221,7 @@ function displayJson(json) {
 	} catch(error) {
 		console.log(error);
 	}
-}
+};
 
 const generateOrderOptions = (orderJson) => {
 	let ts = Date.now().toString();
