@@ -5,12 +5,11 @@ const moment = require('moment');
 
 //独自モジュール読み込み
 const workDir = process.cwd();
-const Strategy = require(workDir + '/bot/vixrsi/strategy.js');
-const CwUtil = require(workDir + '/cryptowatch/cwutil.js');
-const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config.js');
+const Strategy = require(workDir + '/bot/vixrsi/strategy');
+const CwUtil = require(workDir + '/cryptowatch/cwutil');
+const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
 const SECRET = require(workDir + '/secret.json');
-//ToDo: apiモジュールをbotプロジェクトディレクトリに作る
-const BitFlyer = require('/var/www/bfbotapi/bitflyer/api').BitFlyer;
+const BitFlyer = require(workDir + '/api/bitflyer).BitFlyer;
 const bfAPI = new BitFlyer();
 
 //Config内容の読み取り
