@@ -6,11 +6,22 @@ const SD = require('technicalindicators').SD; // 標準偏差
 const SMA = require('technicalindicators').SMA; // SMA
 const WEMA = require('technicalindicators').WEMA; // Wilders Smoothing
 
+
 // ストラテジーの設定
 const VIXConfig = require('./vixrsi_config.js');
 const VIX = VIXConfig.vixStrategyConf;
 
-const vixRsiSignalSelf = (ohlc, position) {
+
+const logging = (message) => {
+        const logDir = 'logs/';
+        const logfileName = moment(Date.now()).format('YYYYMMDD') + ".log";
+        if(!message.endsWith('\n')) message += '\n';
+        fs.appendFile(logDir + logfileName, message, (err) => {
+                if(err) console.log(err);
+        });
+};
+
+const vixRsiSignalSelf = (ohlc, position) =>  {
 	//ohlcをリバース
 	const openRev = CwUtil.getOpens(ohlc).reverse();
 	const highRev = CwUtil.getHighs(ohlc).reverse();
@@ -75,6 +86,13 @@ function vixRsiSignal(ohlc, position) {
   }
   const abody = SMA.calculate({period : body.length, values : body})[0]; // ただの平均
   var upSignal = (wvf[0] >= upperBand || wvf[0] >= rangeHigh) && (fastRsi < VIX.limit) && (closeRev[0] < openRev[0]);
+	if(upSignal) {
+		let dateStr = moment(Date.now()).format('YYYY/MM/DD HH:mm:ss');
+		let message= `${dateStr} WVF:${wvf[0]}, RSI:${fastRsi} `;
+		console.log(message);
+		logging(message);
+		
+	}
   var downSignal = (wvf[0] >= upperBand || wvf[0] >= rangeHigh) && (fastRsi > (100 - VIX.limit)) && (closeRev[0] > openRev[0]);
 	console.log(`up:${upSignal}, down:${downSignal}`);
   var exitSignal = false;
