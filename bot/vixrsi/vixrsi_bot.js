@@ -1,13 +1,14 @@
 const request = require('request');
 const crypto = require('crypto');
 const fs = require('fs');
-const moment = require('momoent');
+const moment = require('moment');
 
 //独自モジュール読み込み
-const Strategy = require('./strategy.js');
-const CwUtil = require('../../cryptowatch/cwutil.js');
-const VIXConfig = require('./vixrsi_config.js');
-const SECRET = require('../../secret.json');
+const workDir = process.cwd();
+const Strategy = require(workDir + '/bot/vixrsi/strategy.js');
+const CwUtil = require(workDir + '/cryptowatch/cwutil.js');
+const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config.js');
+const SECRET = require(workDir + '/secret.json');
 //ToDo: apiモジュールをbotプロジェクトディレクトリに作る
 const BitFlyer = require('/var/www/bfbotapi/bitflyer/api').BitFlyer;
 const bfAPI = new BitFlyer();
@@ -19,6 +20,7 @@ const API_SECRET = SECRET.API_SECRET;
 const CANDLE_SIZE = VIXConfig.vixSimulatorConf.candleSize;
 const PD = VIXConfig.vixStrategyConf.pd;
 const LB = VIXConfig.vixStrategyConf.lb;
+const orderSize = VIXConfig.trader.amount;
 const LOSSCUT_PERCENTAGE = VIXConfig.trader.losscutPercentage;
 const PROFIT_PERCENTAGE = VIXConfig.trader.profitPercentage;
 
@@ -26,6 +28,7 @@ const PROFIT_PERCENTAGE = VIXConfig.trader.profitPercentage;
 //TODO: API操作部を外部に切り出し
 const ORDER_HTTP_METHOD = 'POST';
 const ORDER_ENTRY_POINT = '/v1/me/sendchildorder';
+const waitMilliSecond = 1000 * 60 * VIXConfig.trader.candleSize;
 
 const logging = (message) => {
 	const logDir = 'logs/';
@@ -65,87 +68,95 @@ const checkSecureProfit = async(detected) => {
 
 // 変更点: メインの処理を関数に切り出し
 async function vixRSITrade () {
+	//現在のポジション
 	let position = 'CLOSED';
+	//Strategyから渡されるシグナル
 	let signal = 'HOLD';
-	let order = {};
-	order.product_code = 'FX_BTC_JPY';
-	order.child_order_type = 'MARKET';
-	order.price = 0;
-	order.size = VIXConfig.trader.amount;
-	const waitMilliSecond = 1000 * 60 * VIXConfig.trader.candleSize;
+	let order = {
+		product_code: 'FX_BTC_JPY',
+		child_order_type: 'MARKET',
+		price: 0,
+		size: orderSize,
+	};
+	//現在のポジション
 	let currentPosition = signal;
+	//現在の建玉合計
 	let currentAmount = 0;
-
+	//動作間隔 == ローソク足間隔
 	let interval = 60;
+	//建玉所持中フラグ
 	let whilePositioning = false;
-	let count = 0;
-
+	//利確フラグ
 	let secureProfit = false;
+	//利確認識フラグ
 	let secureProfitDetected = false;
+	//ロスカット時のポジション決済フラグ
+	let positionExited = false;
+	//ロスカットフラグ
+	let losscut = false;
+	//ロスカット認識時のポジション
+	let losscutSide = '';
+	//ロギング用のメッセージ
+	let logMessage = '';
 	
 	//一定時間ごとにポジション移行の判断を行う
 	try {
 		let ohlc = {};
-		let losscut = false;
-		//ロスカット時のポジションフラグ
-		let positionExsited = false;
-		let losscutSide = '';
 		while(true) {
-			//ロスカット/利確処理
+			//ロスカット or 利確をチェック
 			if(whilePositioning) {
-				//ロスカットフラグが立っていなければ
 				if(!losscut) {
 					losscut = await checkLosscut();
 				}
-				//利確フラグ
-				if(!secureProfitDetected) {
-					secureProfitDetected = await checkSecureProfit(secureProfitDetected);
-				} else {
-					secureProfit = await checkSecureProfit(secureProfitDetected);
+				//Losscutと同時成立は多分あり得ない上awaitで時間の無駄になるのでlosscut成立時はチェックしない
+				if(!losscut) {
+					if(!secureProfitDetected) {
+						secureProfitDetected = await checkSecureProfit(secureProfitDetected);
+					} else {
+						secureProfit = await checkSecureProfit(secureProfitDetected);
+					}
 				}
 			}
+			
 			ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
 			signal = Strategy.vixRsiSignal(ohlc, position);
 			position = Strategy.getNextPosition(position, signal);
-			const detail = `${moment(Date.now()).format('YYYY/MM/DD HH:mm:ss')} - ${signal},${position}`;
-			console.log(detail);
-			logging(detail);
-		 	if(signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
+			
+			logMessage = `${moment(Date.now()).format('YYYY/MM/DD HH:mm:ss')} - ${signal},${position}`;
+			console.log(logMessage);
+			logging(logMessage);
+		 	
+			if(signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
 				//ここにロスカットフラグの否定を追加？
-				if(currentPosition === 'NONE' || currentPosition === 'HOLD' ) continue;
-				let exitOrder = {};
-				exitOrder.product_code = 'FX_BTC_JPY';
-				exitOrder.child_order_type = 'MARKET';
-				exitOrder.price = 0;
-				exitOrder.size = currentAmount * order.size;
+				if(!losscut && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
 				
 				if(currentPosition === 'LONG')  {
-					exitOrder.side = 'SELL';
+					order.side = 'SELL';
 					losscutSide = currentPosition;
 				} else if(currentPosition === 'SHORT') {
-					exitOrder.side = 'BUY';
+					order.side = 'BUY';
 					losscutSide = currentPosition;
 				}
+				order.size = currentAmount * orderSize;
 	
 				request(generateOrderOptions(exitOrder), function(err, res, payload) {
 					if(res.statusCode == 200) {
 						positionExited = true;
 						if(losscut) {
-							console.log('LOSSCUT');
-							logging('LOSSCUT');
+							logMessage = 'losscut';
 						} else {
-							console.log("POSITION EXITED");
+							logMessage = 'exit';
 						}
-						console.log('ポジション:', position);
-						console.log('取引枚数(BTC)', currentAmount);
 						currentAmount = 0.0;
 						currentPosition = 'HOLD';
-						displayJson(payload);
 						whilePositioning = false;
-						count = 0;
 						secureProfit = false;
 						secureProfitDetected = false;
-						//positionExited操作
+						positionExited = true;
+					
+						logMessage += `ポジション:${position}, 取引枚数: ${currentAmount * order.size}BTC`;
+						logging(logMessage);
+						displayJson(payload);
 					} else {
 						console.log("何らかのエラーにより決済注文が通りませんでした");
 						displayJson(payload);
@@ -155,8 +166,8 @@ async function vixRSITrade () {
 			if (signal === 'BUY' || signal === 'SELL') {
 				if(losscut && losscutSide == signal) { continue; }
 				losscut = false;
-				positionExited = true;
 				order.side = signal;
+				order.size = orderSize
 
 				request(generateOrderOptions(order), function(err, res, payload) {
 					if(res.statusCode == 200) {
@@ -166,6 +177,13 @@ async function vixRSITrade () {
 						currentAmount++;
 						currentPosition = position;
 						whilePositioning = true;
+						positionExited = false;
+
+						logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数: ${order.size}BTC`;
+						console.log(logMessage);
+						logging(logMessage);
+			
+						
 						displayJson(payload);
 					} else {
 						console.log("エラーにより正常に発注できませんでした");
@@ -222,6 +240,7 @@ function vixRSIBot() {
 		vixRSITrade();
 	} else {
 		console.log('Invalid args!');
+		console.log('Usage: $node bot/vixrsi/vixrsi_bot.js trade');
 	}
 }
 
