@@ -30,6 +30,8 @@ const ORDER_HTTP_METHOD = 'POST';
 const ORDER_ENTRY_POINT = '/v1/me/sendchildorder';
 const waitMilliSecond = 1000 * 60 * VIXConfig.trader.candleSize;
 
+let maxPosition = 0;
+
 const logging = (message) => {
 	const logDir = 'logs/';
 	const logfileName = moment(Date.now()).format('YYYYMMDD') + ".log";
@@ -66,6 +68,15 @@ const checkSecureProfit = async(detected) => {
 	return result;
 };
 
+const getMaxPosition = async () => {
+	let collateralObj = await bfAPI.getCollateral();
+	let collateral = collateralObj.collateral;
+	let price = await bfAPI.getBoard();
+	price = price.mid_price;
+	let unitPrice = price * orderSize / 15;
+	return Math.floor(collateral / unitPrice);		
+};
+
 // 変更点: メインの処理を関数に切り出し
 async function vixRSITrade () {
 	//現在のポジション
@@ -81,7 +92,7 @@ async function vixRSITrade () {
 	//現在のポジション
 	let currentPosition = signal;
 	//現在の建玉合計
-	let currentAmount = 0;
+	let numPosition = 0;
 	//動作間隔 == ローソク足間隔
 	let interval = 60;
 	//建玉所持中フラグ
@@ -98,7 +109,9 @@ async function vixRSITrade () {
 	let losscutSide = '';
 	//ロギング用のメッセージ
 	let logMessage = '';
-	
+	//プログラム開始時に最大ポジション数を算出する
+	maxPosition = await getMaxPosition();
+		
 	//一定時間ごとにポジション移行の判断を行う
 	try {
 		let ohlc = {};
@@ -137,7 +150,7 @@ async function vixRSITrade () {
 					order.side = 'BUY';
 					losscutSide = currentPosition;
 				}
-				order.size = currentAmount * orderSize;
+				order.size = numPosition * orderSize;
 	
 				request(generateOrderOptions(exitOrder), function(err, res, payload) {
 					if(res.statusCode == 200) {
@@ -147,14 +160,16 @@ async function vixRSITrade () {
 						} else {
 							logMessage = 'exit';
 						}
-						currentAmount = 0.0;
+						numPosition = 0.0;
 						currentPosition = 'HOLD';
 						whilePositioning = false;
 						secureProfit = false;
 						secureProfitDetected = false;
 						positionExited = true;
+
+						maxPosition = getMaxPosition();
 					
-						logMessage += `ポジション:${position}, 取引枚数: ${currentAmount * order.size}BTC`;
+						logMessage += `ポジション:${position}, 取引枚数: ${numPosition * order.size}BTC`;
 						logging(logMessage);
 						displayJson(payload);
 					} else {
@@ -164,32 +179,32 @@ async function vixRSITrade () {
 				});
 			}
 			if (signal === 'BUY' || signal === 'SELL') {
-				if(losscut && losscutSide == signal) { continue; }
-				losscut = false;
-				order.side = signal;
-				order.size = orderSize
+				if((losscut && losscutSide == signal) || maxPosition >= numPosition) {
 
-				request(generateOrderOptions(order), function(err, res, payload) {
-					if(res.statusCode == 200) {
-						console.log('シグナル:', signal);
-						console.log('ポジション:', position);
-						console.log('取引枚数(BTC):', order.size);
-						currentAmount++;
-						currentPosition = position;
-						whilePositioning = true;
-						positionExited = false;
-
-						logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数: ${order.size}BTC`;
-						console.log(logMessage);
-						logging(logMessage);
-			
-						
-						displayJson(payload);
-					} else {
-						console.log("エラーにより正常に発注できませんでした");
-						displayJson(payload);
-					}
-				});
+				} else {
+					losscut = false;
+					order.side = signal;
+					order.size = orderSize
+	
+					request(generateOrderOptions(order), function(err, res, payload) {
+						if(res.statusCode == 200) {
+							numPosition++;
+							currentPosition = position;
+							whilePositioning = true;
+							positionExited = false;
+	
+							logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数: ${order.size}BTC`;
+							console.log(logMessage);
+							logging(logMessage);
+				
+							
+							displayJson(payload);
+						} else {
+							console.log("エラーにより正常に発注できませんでした");
+							displayJson(payload);
+						}
+					});
+				}
 			}
 			await sleepSec(interval * CANDLE_SIZE);
 		}
@@ -197,6 +212,8 @@ async function vixRSITrade () {
 		console.log(error);
 	}
 }
+
+
 
 function displayJson(json) {
 	try {
@@ -208,7 +225,7 @@ function displayJson(json) {
 	}
 }
 
-function generateOrderOptions(orderJson) {
+const generateOrderOptions = (orderJson) => {
 	let ts = Date.now().toString();
 	let body = JSON.stringify(orderJson);
 	let text = ts + ORDER_HTTP_METHOD + ORDER_ENTRY_POINT + body;
@@ -226,22 +243,14 @@ function generateOrderOptions(orderJson) {
 	};
 }
 
-async function sleepSec(seconds) {
+const sleepSec = async (seconds) => {
 	const interval = 1000 * seconds;
 	return new Promise(resolve => setTimeout(resolve, interval));
-}
+};
 
-
-
-function vixRSIBot() {
-	let mode = process.argv[2];
-	if(mode === 'trade') {
-		console.log('[稼働開始]');
-		vixRSITrade();
-	} else {
-		console.log('Invalid args!');
-		console.log('Usage: $node bot/vixrsi/vixrsi_bot.js trade');
-	}
-}
+const vixRSIBot = () => {
+	console.log('[稼働開始]');
+	vixRSITrade();
+};
 
 vixRSIBot();
