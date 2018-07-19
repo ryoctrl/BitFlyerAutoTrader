@@ -89,7 +89,6 @@ function vixRsiSignal(ohlc, position) {
 	if(upSignal) {
 		let dateStr = moment(Date.now()).format('YYYY/MM/DD HH:mm:ss');
 		let message= `${dateStr} WVF:${wvf[0]}, RSI:${fastRsi} `;
-		console.log(message);
 		logging(message);
 		
 	}
