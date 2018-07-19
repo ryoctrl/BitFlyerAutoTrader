@@ -40,6 +40,13 @@ class BitFlyer {
 		return await this.sendRequest(method, path, null);
 	}
 	
+	//注文を出す	
+	async sendChildorder(body) {
+		let method = 'POST';
+		let path = '/v1/me/sendchildorder';
+		return await this.sendRequest(method, path, body);
+	}
+	
 	//板情報を取得
 	async getBoard() {
 		let method = 'GET';
@@ -47,7 +54,6 @@ class BitFlyer {
 		return await this.sendPublicRequest(method, path, null);
 	}
 
-	//TODO: PublicAPIを正常に取得できるようにする
 	async sendPublicRequest(method, path, body) {
 		let url = URL + path;
 		let res = await fetch(url);
@@ -56,6 +62,7 @@ class BitFlyer {
 
 	async sendRequest(method, path, body) {
 		let ts = Date.now().toString();
+		body = JSON.stringify(body);
 		let uri = URL + path;
 		let text = ts + method + path;
 		if(method == 'POST') text += body;
