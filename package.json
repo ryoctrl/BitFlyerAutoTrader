@@ -16,6 +16,7 @@
     "@types/log4js": "^2.3.5",
     "config": "^1.30.0",
     "log4js": "^2.10.0",
+    "socket.io-client": "^2.1.1",
     "technicalindicators": "^1.1.10"
   }
 }
