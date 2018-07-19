@@ -9,7 +9,7 @@ const Strategy = require(workDir + '/bot/vixrsi/strategy');
 const CwUtil = require(workDir + '/cryptowatch/cwutil');
 const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
 const SECRET = require(workDir + '/secret.json');
-const BitFlyer = require(workDir + '/api/bitflyer).BitFlyer;
+const BitFlyer = require(workDir + '/api/bitflyer').BitFlyer;
 const bfAPI = new BitFlyer();
 
 //Config内容の読み取り
@@ -20,6 +20,7 @@ const CANDLE_SIZE = VIXConfig.vixSimulatorConf.candleSize;
 const PD = VIXConfig.vixStrategyConf.pd;
 const LB = VIXConfig.vixStrategyConf.lb;
 const orderSize = VIXConfig.trader.amount;
+const leverage = VIXConfig.trader.leverage;
 const LOSSCUT_PERCENTAGE = VIXConfig.trader.losscutPercentage;
 const PROFIT_PERCENTAGE = VIXConfig.trader.profitPercentage;
 
@@ -40,6 +41,9 @@ const logging = (message) => {
 	});			
 };
 
+///
+/// 証拠金と評価評価損益からロスカットの可否を返す
+///
 const checkLosscut = async () => {
 	let collateral = await bfAPI.getCollateral();
 	let amount = collateral.collateral;
@@ -47,6 +51,12 @@ const checkLosscut = async () => {
 	return pnl <= -(amount * (LOSSCUT_PERCENTAGE / 100));
 };
 
+///
+/// 証拠金と評価損益から利確の可否を返す
+/// detectedにfalseを指定すると評価損益が基準額以上
+/// detectedにtrueを指定すると評価損益が基準額以下でtrueを返す
+/// 一度認識した後にその額を下回れば損失になる前に利確するスタンス
+///
 const checkSecureProfit = async(detected) => {
 	let collateral = await bfAPI.getCollateral();
 	let amount = collateral.collateral;
@@ -55,25 +65,27 @@ const checkSecureProfit = async(detected) => {
 	let message = '';
 	if(detected) {
 		result = pnl <= amount * (PROFIT_PERCENTAGE / 100);
-		console.log('利確処理 : ', result);
-		message += '利確処理:';
 	} else {
 		result = pnl >= amount * (PROFIT_PERCENTAGE / 100);
-		console.log('利確フラグ : ', result);
-		message += '利確フラグ';
 	}
-	message += result ? 'ON' : 'OFF';
-	logging(message);
 	return result;
 };
 
+///
+/// 証拠金とBTCFXの現在価格から最大建玉数を算出する
+/// 切り捨て(証拠金 / (現在価格 * 発注単価(最小0.01) / レバレッジ(15));
+/// 切り捨て(2000 / (600000 * 0.01 / 15)) => 5
+///
 const getMaxPosition = async () => {
 	let collateralObj = await bfAPI.getCollateral();
 	let collateral = collateralObj.collateral;
+	console.log(`証拠金:${collateral}円`);
 	let price = await bfAPI.getBoard();
 	price = price.mid_price;
-	let unitPrice = price * orderSize / 15;
-	return Math.floor(collateral / unitPrice);		
+	let unitPrice = price * orderSize / leverage;
+	let result = Math.floor(collateral / unitPrice);
+	console.log(`最大建玉数:${result}`);
+	return result;
 };
 
 // 変更点: メインの処理を関数に切り出し
@@ -105,12 +117,12 @@ const vixRSITrade = async () => {
 	//ロスカットフラグ
 	let losscut = false;
 	//ロスカット認識時のポジション
-	let losscutSide = '';
+	let losscutSignal = '';
 	//ロギング用のメッセージ
 	let logMessage = '';
 	//プログラム開始時に最大ポジション数を算出する
 	maxPosition = await getMaxPosition();
-		
+	console.log(`最大建玉:${maxPosition} で開始します`);
 	//一定時間ごとにポジション移行の判断を行う
 	try {
 		let ohlc = {};
@@ -139,73 +151,65 @@ const vixRSITrade = async () => {
 			logging(logMessage);
 		 	
 			if(signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
-				//ここにロスカットフラグの否定を追加？
 				if(!losscut && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
 				
 				if(currentPosition === 'LONG')  {
 					order.side = 'SELL';
-					losscutSide = currentPosition;
+					losscutSignal = 'BUY';
 				} else if(currentPosition === 'SHORT') {
 					order.side = 'BUY';
-					losscutSide = currentPosition;
+					losscutSignal = 'SELL';
 				}
 				order.size = numPosition * orderSize;
-	
-				request(generateOrderOptions(exitOrder), function(err, res, payload) {
-					if(res.statusCode == 200) {
-						positionExited = true;
-						if(losscut) {
-							logMessage = 'losscut';
-						} else {
-							logMessage = 'exit';
-						}
-						numPosition = 0.0;
-						currentPosition = 'HOLD';
-						whilePositioning = false;
-						secureProfit = false;
-						secureProfitDetected = false;
-						positionExited = true;
-
-						maxPosition = getMaxPosition();
+			
+				let childOrder = await bfAPI.sendChildorder(order);
+				
+				if(childOrder.child_order_acceptance_id) {
+					logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
+					positionExited = true;
+					numPosition = 0.0;
+					currentPosition = 'HOLD';
+					whilePositioning = false;
+					secureProfit = false;
+					secureProfitDetected = false;
+					maxPosition = await getMaxPosition();	
 					
-						logMessage += `ポジション:${position}, 取引枚数: ${numPosition * order.size}BTC`;
-						logging(logMessage);
-						displayJson(payload);
-					} else {
-						console.log("何らかのエラーにより決済注文が通りませんでした");
-						displayJson(payload);
-					}
-				});
-			}
-			if (signal === 'BUY' || signal === 'SELL') {
-				if((losscut && losscutSide == signal) || maxPosition >= numPosition) {
+					if(losscut) logMessage = 'losscut';
+					else logMessage = 'exit';
 
+					logging(logMessage);
+					console.log(childOrder);
 				} else {
+					console.log("何らかのエラーにより決済注文が通りませんでした");
+					console.log(childOrder);
+				}
+			} else if (signal === 'BUY' || signal === 'SELL') {
+				if(!(losscut && losscutSignal == signal) || numPosition < maxPosition) {
+					
 					losscut = false;
+					losscutSignal = '';
 					order.side = signal;
 					order.size = orderSize
-	
-					request(generateOrderOptions(order), function(err, res, payload) {
-						if(res.statusCode == 200) {
-							numPosition++;
-							currentPosition = position;
-							whilePositioning = true;
-							positionExited = false;
-	
-							logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数: ${order.size}BTC`;
-							console.log(logMessage);
-							logging(logMessage);
 				
-							
-							displayJson(payload);
-						} else {
-							console.log("エラーにより正常に発注できませんでした");
-							displayJson(payload);
-						}
-					});
+					let childOrder = await bfAPI.sendChildorder(order);
+					if(childOrder.child_order_acceptance_id) {
+						numPosition++;
+						currentPosition = position;
+						whilePositioning = true;
+						positionExited = false;
+						
+						logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC`;
+						console.log(logMessage);
+						logging(logMessage);
+						console.log(childOrder);
+					} else {
+						console.log('エラーにより正常に発注できませんでした');
+						console.log(childOrder);
+					}
+	
 				}
 			}
-			await sleepSec(interval * CANDLE_SIZE);
+			await sleepSec(interval * CANDLE_SIZE - 1);
 		}
 	} catch(error) {
 		console.log(error);
@@ -220,6 +224,7 @@ const displayJson = (json) => {
 		if(jsonObj.error_message) logging(jsonObj.error_message);
 	} catch(error) {
 		console.log(error);
+		console.log(`JsonText: ${json}`);
 	}
 };
 
