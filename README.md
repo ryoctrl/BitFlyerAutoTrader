@@ -34,6 +34,11 @@ bot/vixrsi/vixrsi_bot.jsをnodeで起動することで稼働し始めます.
 
 現状はBitFlyerのAPIに接続し各種データを取得し表示するだけのアプリですが、最終的にはこのWebアプリ上からbotのコントロール(On/Offや設定変更等)を行えればと予定しております。
 
+## 実装予定の機能
+
+- RealTimeAPIに対応・移行
+- ロスカット注文後の戦略変更
+
 ## Special thanks
 
 このプログラムの元となるコードをGithubで公開してくださった[@tonacoin](https://twitter.com/tonacoin)様に厚くお礼申し上げます。ありがとうございます。
