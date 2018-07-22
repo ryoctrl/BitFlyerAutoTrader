@@ -245,8 +245,11 @@ const vixRSITrade = async () => {
 									product_code: 'FX_BTC_JPY',
 									child_order_acceptance_id: id
 								};
+								bfAPI.cancelChildorder(cancelBody);
+								/*
 								let cancel = await bfAPI.cancelChildorder(cancelBody);
 								console.log(cancel);
+								*/
 								if(tryOrderCount >= 5) break;
 							} else {
 								console.log('エラーにより正常に発注できませんでした');
