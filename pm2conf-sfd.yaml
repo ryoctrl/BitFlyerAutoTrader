@@ -1,0 +1,6 @@
+# Labchoise Setting YAML.
+
+name: sfdtrader
+script: ./bot/sfdtrade/sfdbot.js
+instances: 1
+log-date-format: "YYYY-MM-DD HH:mm Z"

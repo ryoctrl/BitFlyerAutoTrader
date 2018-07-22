@@ -5,9 +5,9 @@ const moment = require('moment');
 
 //独自モジュール読み込み
 const workDir = process.cwd();
-const Strategy = require(workDir + '/bot/vixrsi/strategy');
+const Strategy = require(workDir + '/bot/vixrsi-5/strategy');
 const CwUtil = require(workDir + '/cryptowatch/cwutil');
-const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
+const VIXConfig = require(workDir + '/bot/vixrsi-5/vixrsi_config');
 const SECRET = require(workDir + '/secret.json');
 const BitFlyer = require(workDir + '/api/bitflyer').BitFlyer;
 const bfAPI = new BitFlyer();
@@ -23,6 +23,7 @@ const orderSize = VIXConfig.trader.amount;
 const leverage = VIXConfig.trader.leverage;
 const LOSSCUT_PERCENTAGE = VIXConfig.trader.losscutPercentage;
 const PROFIT_PERCENTAGE = VIXConfig.trader.profitPercentage;
+const SIMULATE = VIXConfig.trader.simulator;
 
 //定数宣言
 //TODO: API操作部を外部に切り出し
@@ -33,12 +34,12 @@ const waitMilliSecond = 1000 * 60 * VIXConfig.trader.candleSize;
 let maxPosition = 0;
 
 const logging = (message) => {
-	const logDir = 'logs/';
+	const logDir = 'logs/autotrader-5';
 	const logfileName = moment(Date.now()).format('YYYYMMDD') + ".log";
 	if(!message.endsWith('\n')) message += '\n';
 	fs.appendFile(logDir + logfileName, message, (err) => {
 		if(err) console.log(err);
-	});			
+	});	
 };
 
 ///
@@ -80,20 +81,13 @@ const getMaxPosition = async () => {
 	let collateralObj = await bfAPI.getCollateral();
 	let collateral = collateralObj.collateral;
 	console.log(`証拠金:${collateral}円`);
-	let price = await bfAPI.getFXBoard();
+	let price = await bfAPI.getBoard();
 	price = price.mid_price;
 	let unitPrice = price * orderSize / leverage;
 	let result = Math.floor(collateral / unitPrice);
 	console.log(`最大建玉数:${result}`);
 	return result;
 };
-
-const getSFD = async() => {
-	let fxPrice = (await bfAPI.getFXBoard()).mid_price;
-	let btcPrice = (await bfAPI.getBTCBoard()).mid_price;
-	let kairi = fxPrice/btcPrice * 100 - 100;
-	return kairi;
-}
 
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async () => {
@@ -158,7 +152,7 @@ const vixRSITrade = async () => {
 			logging(logMessage);
 		 	
 			if(signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
-				if((!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
+				if(!losscut && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
 				
 				if(currentPosition === 'LONG')  {
 					order.side = 'SELL';
@@ -168,11 +162,21 @@ const vixRSITrade = async () => {
 					losscutSignal = 'SELL';
 				}
 				order.size = numPosition * orderSize;
-			
-				let childOrder = await bfAPI.sendChildorder(order);
+				
+				let childOrder = '';
+				if(SIMULATE) {
+					childOrder = {child_order_acceptance_id: 'simulate'};
+					logMessage = '(SIMULATE_MODE)'
+				} else {
+					childOrder = await bfAPI.sendChildorder(order);	
+					logMessage = '';
+				}	
+
+				let currentPrice = (await bfAPI.getBoard()).mid_price;
 				
 				if(childOrder.child_order_acceptance_id) {
-					logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
+					logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC, 予想取引価格:${currentPrice}`;
+					console.log(logMessage);
 					positionExited = true;
 					numPosition = 0.0;
 					currentPosition = 'HOLD';
@@ -181,9 +185,8 @@ const vixRSITrade = async () => {
 					secureProfitDetected = false;
 					maxPosition = await getMaxPosition();	
 					
-					if(losscut) logMessage = 'ロスカット';
-					else if(secureProfit) logMessage = '利食い';
-					else logMessage = '手仕舞';
+					if(losscut) logMessage = 'losscut';
+					else logMessage = 'exit';
 
 					logging(logMessage);
 					console.log(childOrder);
@@ -198,25 +201,33 @@ const vixRSITrade = async () => {
 					losscutSignal = '';
 					order.side = signal;
 					order.size = orderSize
-				
-					let sfd = await getSFD();
-					if(signal === 'SELL' || (signal === 'BUY' && sfd < 4.9)) {
-						let childOrder = await bfAPI.sendChildorder(order);
-						if(childOrder.child_order_acceptance_id) {
-							numPosition++;
-							currentPosition = position;
-							whilePositioning = true;
-							positionExited = false;
-							
-							logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC`;
-							console.log(logMessage);
-							logging(logMessage);
-							console.log(childOrder);
-						} else {
-							console.log('エラーにより正常に発注できませんでした');
-							console.log(childOrder);
-						}
-					} 
+					
+					let childOrder = '';
+					if(SIMULATE) {
+						childOrder = {child_order_acceptance_id: 'simulate'};
+						logMessage = '(SIMULATE_MODE)';
+					} else {
+						childOrder = await bfAPI.sendChildorder(order);
+						logMessage = '';
+					}	
+
+					let currentPrice = (await bfAPI.getBoard()).mid_price;
+	
+					if(childOrder.child_order_acceptance_id) {
+						numPosition++;
+						currentPosition = position;
+						whilePositioning = true;
+						positionExited = false;
+						
+						logMessage += `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 予想取引価格:${currentPrice}`;
+						console.log(logMessage);
+						logging(logMessage);
+						console.log(childOrder);
+					} else {
+						console.log('エラーにより正常に発注できませんでした');
+						console.log(childOrder);
+					}
+	
 				}
 			}
 			await sleepSec(interval * CANDLE_SIZE - 1);

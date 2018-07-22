@@ -38,6 +38,8 @@ bot/vixrsi/vixrsi_bot.jsをnodeで起動することで稼働し始めます.
 
 - RealTimeAPIに対応・移行
 - ロスカット注文後の戦略変更
+- DBを実装しリアルタイムシミュレート
+
 
 ## Special thanks
 

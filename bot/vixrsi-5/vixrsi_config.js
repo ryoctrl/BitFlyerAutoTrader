@@ -9,6 +9,7 @@ exports.vixStrategyConf = {
 	greedy: true,
 }
 
+//バックテスト専用の設定項目
 exports.backtest = {
 	historyCount: 8 * 48, //バックテスト対象のローソク足の数.pd + lbより大きい必要がある.
 }
@@ -16,10 +17,10 @@ exports.backtest = {
 // 本番
 // TODO: コメントをREADMEに切り出し
 exports.trader = {
+	simulator: true, //simulatorモード(true/false)
 	amount: 0.01, //トレードの単位当たりの発注数
 	leverage: 15, //レバレッジ
-	candleSize: 1, // n分足、本番では60がおすすめ
-	delay: 10, // TODO: 注文を開始するまでにdelay秒待つ
+	candleSize: 5, // n分足、本番では60がおすすめ
 	entryType: 'LIMIT', // LIMIT: 指値, MARKET: 成行
 	exitType: 'MARKET',
 	profitLimitFlag: false,

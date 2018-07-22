@@ -1,0 +1,6 @@
+# Labchoise Setting YAML.
+
+name: autotrader-5
+script: ./bot/vixrsi-5/vixrsi_bot.js
+instances: 1
+log-date-format: "YYYY-MM-DD HH:mm Z"

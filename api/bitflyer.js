@@ -47,8 +47,29 @@ class BitFlyer {
 		return await this.sendRequest(method, path, body);
 	}
 	
+	//注文をキャンセルする
+	async cancelChildorder(body) {
+		let method = 'POST';
+		let path = '/v1/me/cancelchildorder';
+		return await this.sendRequest(method, path, body);
+	}
+
+	//注文の詳細を取得
+	async getChildorders(id) {
+		let method = 'GET';
+		let path = '/v1/me/getchildorders?product_code=FX_BTC_JPY';
+		if(id) path += `&child_order_acceptance_id=${id}`;
+		return await this.sendRequest(method, path, null);
+	}
+
+	async getBTCBoard() {
+		let method = 'GET';
+		let path = '/v1/board?product_code=BTC_JPY';
+		return await this.sendPublicRequest(method, path, null);
+	}
+	
 	//板情報を取得
-	async getBoard() {
+	async getFXBoard() {
 		let method = 'GET';
 		let path = '/v1/board?product_code=FX_BTC_JPY';
 		return await this.sendPublicRequest(method, path, null);
