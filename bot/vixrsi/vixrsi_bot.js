@@ -98,8 +98,9 @@ const getMaxPosition = async() => {
     let collateralObj = await bfAPI.getCollateral();
     let collateral = collateralObj.collateral;
     console.log(`証拠金:${collateral}円`);
-    let price = await bfAPI.getFXBoard();
-    price = price.mid_price;
+    if (fxBTCJPY == -1) {
+        let fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
+    }
     let unitPrice = price * orderSize / leverage;
     let result = Math.floor(collateral / unitPrice);
     console.log(`最大建玉数:${result}`);
@@ -222,19 +223,19 @@ const vixRSITrade = async() => {
                     losscut = false;
                     losscutSignal = '';
                     order.side = signal;
-                    if (signal === 'BUY' && bestAsk != -1) {
-                        order.child_order_type = 'LIMIT';
-                        order.price = bestAsk;
-                    } else if (signal === 'SELL' && bestBid != -1) {
-                        order.child_order_type = 'LIMIT';
-                        order.price = bestBid;
-                    }
                     order.size = orderSize
 
                     let sfd = getEstrangementPercentage();
                     if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.9)) {
                         let tryOrderCount = 0;
                         while (true) {
+                            if (signal === 'BUY' && bestAsk != -1) {
+                                order.child_order_type = 'LIMIT';
+                                order.price = bestAsk;
+                            } else if (signal === 'SELL' && bestBid != -1) {
+                                order.child_order_type = 'LIMIT';
+                                order.price = bestBid;
+                            }
                             let childOrder = await bfAPI.sendChildorder(order);
                             if (childOrder.child_order_acceptance_id) {
                                 tryOrderCount++;
@@ -260,11 +261,11 @@ const vixRSITrade = async() => {
                                 };
                                 bfAPI.cancelChildorder(cancelBody);
                                 if (tryOrderCount >= 5) {
-					logMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
-					console.log(logMessage);
-					util.logging(LOGNAME, logMessage);
-					break;
-				}
+                                    logMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
+                                    console.log(logMessage);
+                                    util.logging(LOGNAME, logMessage);
+                                    break;
+                                }
                             } else {
                                 console.log('エラーにより正常に発注できませんでした');
                                 console.log(childOrder);
@@ -273,6 +274,10 @@ const vixRSITrade = async() => {
                         }
                     } else if (signal === 'BUY' && sfd >= 4.9) {
                         logMessage = `乖離率が${sfd}%でSFDを徴収される可能性があるため注文をスルーしました。`;
+                        console.log(logMessage);
+                        util.logging(LOGNAME, logMessage);
+                    } else {
+                        logMessage = `何らかの原因により注文をスルーしました。`;
                         console.log(logMessage);
                         util.logging(LOGNAME, logMessage);
                     }
