@@ -270,6 +270,10 @@ const vixRSITrade = async() => {
                                 break;
                             }
                         }
+                    } else if (signal === 'BUY' && sfd >= 4.9) {
+                        logMessage = `乖離率が${sfd}%でSFDを徴収される可能性があるため注文をスルーしました。`;
+                        console.log(logMessage);
+                        util.logging(LOGNAME, logMessage);
                     }
                 }
             }
