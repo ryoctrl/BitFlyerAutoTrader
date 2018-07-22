@@ -63,11 +63,52 @@ let maxPosition = 0;
 let spotBTCJPY = -1;
 //FXの最終取引価格
 let fxBTCJPY = -1;
+//現在のポジションの評価損益
+let positionValuation = -1;
+//現在のポジションの約定金額一覧
+let positions = [];
+//現在の建玉合計
+let numPosition = 0;
+//現在の証拠金
+let currentCollateral = -1;
+//現在のポジション
+let currentPosition = 'CLOSED';
+
+
+///
+/// fxBTCJPYの価格から現状の評価損益を設定する
+/// 
+///
+///
+const calcPositionVlauation = () => {
+    if (numPosition == 0 || positions.length == 0 || currentCollateral == -1) return;
+    let averagePositionPrice = -1;
+    for (let position of positions) {
+        averagePositionPrice += position;
+    }
+    averagePositionPrice /= numPosition;
+    if (currentPosition === 'LONG') {
+        positionValuation = (fxBTCJPY - averagePositionPrice) * numPosition;
+    } else if (currentPosition === 'SHORT') {
+        positionValuation = (averagePositionPrice - fxBTCJPY) * numPosition;
+    }
+    losscutIfNeeded();
+}
+
+///
+/// 必要であればLosscutを行う
+///
+///
+///
+const losscutIfNeeded = async() => {
+    //TODO: implement method.
+}
 
 ///
 /// 証拠金と評価評価損益からロスカットの可否を返す
 ///
 const checkLosscut = async() => {
+    if (numPosition == 0 || positionValuation == -1) return;
     let collateral = await bfAPI.getCollateral();
     let amount = collateral.collateral;
     let pnl = collateral.open_position_pnl;
@@ -85,7 +126,6 @@ const checkSecureProfit = async(detected) => {
     let amount = collateral.collateral;
     let pnl = collateral.open_position_pnl;
     return result = false;
-    let message = '';
     if (detected) {
         result = pnl <= amount * (PROFIT_PERCENTAGE / 100);
     } else {
@@ -100,8 +140,9 @@ const checkSecureProfit = async(detected) => {
 /// 切り捨て(2000 / (600000 * 0.01 / 15)) => 5
 ///
 const getMaxPosition = async() => {
-    let collateralObj = await bfAPI.getCollateral();
-    let collateral = collateralObj.collateral;
+    if (currentCollateral == -1) {
+        collateral = (await bfAPI.getCollateral()).collateral;
+    }
     console.log(`証拠金:${collateral}円`);
     if (fxBTCJPY == -1) {
         fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
@@ -124,6 +165,9 @@ const getEstrangementPercentage = () => {
     return estrangementPercentage;
 }
 
+
+
+
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async() => {
     //現在のポジション
@@ -136,10 +180,7 @@ const vixRSITrade = async() => {
         price: 0,
         size: orderSize,
     };
-    //現在のポジション
-    let currentPosition = signal;
-    //現在の建玉合計
-    let numPosition = 0;
+
     //動作間隔 == ローソク足間隔
     let interval = 60;
     //建玉所持中フラグ
@@ -156,7 +197,9 @@ const vixRSITrade = async() => {
     let losscutSignal = '';
     //ロギング用のメッセージ
     let logMessage = '';
+
     //プログラム開始時に最大ポジション数を算出する
+    currentCOllateral = (await getCollateral()).collateral;
     maxPosition = await getMaxPosition();
     console.log(`最大建玉:${maxPosition} で開始します`);
     //一定時間ごとにポジション移行の判断を行う
@@ -249,6 +292,7 @@ const vixRSITrade = async() => {
                                 let result = await waitContractOrderForFiveSec(id);
                                 if (result) {
                                     numPosition++;
+                                    positions.push(order.price);
                                     currentPosition = position;
                                     whilePositioning = true;
                                     positionExited = false;
