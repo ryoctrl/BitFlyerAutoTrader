@@ -1,7 +1,5 @@
-const request = require('request');
-const crypto = require('crypto');
-const fs = require('fs');
 const moment = require('moment');
+const io = require('socket.io-client');
 
 //独自モジュール読み込み
 const workDir = process.cwd();
@@ -9,7 +7,9 @@ const Strategy = require(workDir + '/bot/vixrsi/strategy');
 const CwUtil = require(workDir + '/cryptowatch/cwutil');
 const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
 const SECRET = require(workDir + '/secret.json');
+const Util = require(`${workDir}/utilities/util`).Util;
 const BitFlyer = require(workDir + '/api/bitflyer').BitFlyer;
+const util = new Util();
 const bfAPI = new BitFlyer();
 
 //Config内容の読み取り
@@ -29,17 +29,27 @@ const PROFIT_PERCENTAGE = VIXConfig.trader.profitPercentage;
 const ORDER_HTTP_METHOD = 'POST';
 const ORDER_ENTRY_POINT = '/v1/me/sendchildorder';
 const waitMilliSecond = 1000 * 60 * VIXConfig.trader.candleSize;
+const LOGNAME = 'vixrsi';
 
+//リアルタイムAPIの準備/設定
+const FX_TICKER_CHANNEL = "lightning_ticker_FX_BTC_JPY";
+const STREAM_URI = "https://io.lightstream.bitflyer.com";
+const socket = io(STREAM_URI, { transports: ["websocket"] });
+socket.on("connect", () => {
+	socket.emit("subscribe", FX_TICKER_CHANNEL);
+});
+
+socket.on(FX_TICKER_CHANNEL, message => {
+	if(bestBid == -1 || bestAsk == -1) {
+		console.log(`BestBidSetTo: ${message.best_bid}, BestAskSetTo: ${message.best_ask}`);
+	}
+	bestBid = message.best_bid;
+	bestAsk = message.best_ask;
+});
+
+let bestBid = -1;
+let bestAsk = -1;
 let maxPosition = 0;
-
-const logging = (message) => {
-	const logDir = 'logs/';
-	const logfileName = moment(Date.now()).format('YYYYMMDD') + ".log";
-	if(!message.endsWith('\n')) message += '\n';
-	fs.appendFile(logDir + logfileName, message, (err) => {
-		if(err) console.log(err);
-	});			
-};
 
 ///
 /// 証拠金と評価評価損益からロスカットの可否を返す
@@ -155,7 +165,7 @@ const vixRSITrade = async () => {
 			
 			logMessage = `${moment(Date.now()).format('YYYY/MM/DD HH:mm:ss')} - ${signal},${position}`;
 			console.log(logMessage);
-			logging(logMessage);
+			util.logging(LOGNAME, logMessage);
 		 	
 			if(signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
 				if((!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
@@ -168,6 +178,8 @@ const vixRSITrade = async () => {
 					losscutSignal = 'SELL';
 				}
 				order.size = numPosition * orderSize;
+				order.child_order_type = 'MARKET';
+				order.price = 0;
 			
 				let childOrder = await bfAPI.sendChildorder(order);
 				
@@ -185,7 +197,7 @@ const vixRSITrade = async () => {
 					else if(secureProfit) logMessage = '利食い';
 					else logMessage = '手仕舞';
 
-					logging(logMessage);
+					util.logging(LOGNAME, logMessage);
 					console.log(childOrder);
 				} else {
 					console.log("何らかのエラーにより決済注文が通りませんでした");
@@ -197,24 +209,50 @@ const vixRSITrade = async () => {
 					losscut = false;
 					losscutSignal = '';
 					order.side = signal;
+					if(signal === 'BUY' && bestAsk != -1) {
+						order.child_order_type = 'LIMIT';
+						order.price = bestAsk;
+					} else if(signal === 'SELL' && bestBid != -1) {
+						order.child_order_type = 'LIMIT';
+						order.price = bestBid;
+					}
 					order.size = orderSize
 				
 					let sfd = await getSFD();
 					if(signal === 'SELL' || (signal === 'BUY' && sfd < 4.9)) {
-						let childOrder = await bfAPI.sendChildorder(order);
-						if(childOrder.child_order_acceptance_id) {
-							numPosition++;
-							currentPosition = position;
-							whilePositioning = true;
-							positionExited = false;
-							
-							logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC`;
-							console.log(logMessage);
-							logging(logMessage);
-							console.log(childOrder);
-						} else {
-							console.log('エラーにより正常に発注できませんでした');
-							console.log(childOrder);
+						let tryOrderCount = 0;
+						while(true) {
+							let childOrder = await bfAPI.sendChildorder(order);
+							if(childOrder.child_order_acceptance_id) {
+								tryOrderCount++;
+								
+								let id = childOrder.child_order_acceptance_id;
+								let result = await waitContractOrderForFiveSec(id);
+								if(result) {
+									numPosition++;
+									currentPosition = position;
+									whilePositioning = true;
+									positionExited = false;
+									logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}`;
+									console.log(logMessage);
+									util.logging(LOGNAME, logMessage);
+									console.log(childOrder);
+									break;
+								}
+								
+								console.log('注文が5秒間約定しなかったためキャンセルします。');
+								let cancelBody = {
+									product_code: 'FX_BTC_JPY',
+									child_order_acceptance_id: id
+								};
+								let cancel = await bfAPI.cancelChildorder(cancelBody);
+								console.log(cancel);
+								if(tryOrderCount >= 5) break;
+							} else {
+								console.log('エラーにより正常に発注できませんでした');
+								console.log(childOrder);
+								break;
+							}
 						}
 					} 
 				}
@@ -226,34 +264,13 @@ const vixRSITrade = async () => {
 	}
 };
 
-
-const displayJson = (json) => {
-	try {
-		console.log(JSON.parse(json));
-		let jsonObj = JSON.parse(json);
-		if(jsonObj.error_message) logging(jsonObj.error_message);
-	} catch(error) {
-		console.log(error);
-		console.log(`JsonText: ${json}`);
+const waitContractOrderForFiveSec = async (id) => {
+	let orders = null;
+	for(let count = 0; count < 5; count++) {
+		orders = await bfAPI.getChildorders(id);
+		if(orders.length && orders[0].child_order_state === 'COMPLETED') return true;
+		await sleepSec(1);
 	}
-};
-
-const generateOrderOptions = (orderJson) => {
-	let ts = Date.now().toString();
-	let body = JSON.stringify(orderJson);
-	let text = ts + ORDER_HTTP_METHOD + ORDER_ENTRY_POINT + body;
-	let sign = crypto.createHmac('sha256', API_SECRET).update(text).digest('hex');
-	return {
-		url: 'https://api.bitflyer.jp' + ORDER_ENTRY_POINT,
-		method: ORDER_HTTP_METHOD,
-		body: body,
-		headers: {
-			'ACCESS-KEY': API_KEY,
-			'ACCESS-TIMESTAMP': ts,	
-			'ACCESS-SIGN': sign,
-			'Content-Type': 'application/json'
-		}
-	};
 }
 
 const sleepSec = async (seconds) => {
