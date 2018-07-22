@@ -259,11 +259,12 @@ const vixRSITrade = async() => {
                                     child_order_acceptance_id: id
                                 };
                                 bfAPI.cancelChildorder(cancelBody);
-                                /*
-                                let cancel = await bfAPI.cancelChildorder(cancelBody);
-                                console.log(cancel);
-                                */
-                                if (tryOrderCount >= 5) break;
+                                if (tryOrderCount >= 5) {
+					logMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
+					console.log(logMessage);
+					util.logging(LOGNAME, logMessage);
+					break;
+				}
                             } else {
                                 console.log('エラーにより正常に発注できませんでした');
                                 console.log(childOrder);
