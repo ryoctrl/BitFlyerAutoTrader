@@ -99,9 +99,9 @@ const getMaxPosition = async() => {
     let collateral = collateralObj.collateral;
     console.log(`証拠金:${collateral}円`);
     if (fxBTCJPY == -1) {
-        let fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
+        fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
     }
-    let unitPrice = price * orderSize / leverage;
+    let unitPrice = fxBTCJPY * orderSize / leverage;
     let result = Math.floor(collateral / unitPrice);
     console.log(`最大建玉数:${result}`);
     return result;
