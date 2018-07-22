@@ -53,10 +53,15 @@ socket.on(SPOT_EXECUTIONS_CHANNEL, message => {
     spotBTCJPY = message[0].price;
 });
 
+//最高値買い価格
 let bestBid = -1;
+//最安値売り価格
 let bestAsk = -1;
+//最大ポジション数
 let maxPosition = 0;
+//現物の最終取引価格
 let spotBTCJPY = -1;
+//FXの最終取引価格
 let fxBTCJPY = -1;
 
 ///
@@ -113,7 +118,7 @@ const getMaxPosition = async() => {
 /// 価格乖離 (%) = （Lightning FX 取引価格 ÷ Lightning 現物 （BTC/JPY）最終取引価格 − 1）× 100
 /// 実装は公式サイトの説明通りの計算式とする
 ///
-const getEstrangementPercentage = async() => {
+const getEstrangementPercentage = () => {
     if (fxBTCJPY == -1 || spotBTCJPY == -1) return 0;
     let estrangementPercentage = (fxBTCJPY / spotBTCJPY - 1) * 100;
     return estrangementPercentage;
