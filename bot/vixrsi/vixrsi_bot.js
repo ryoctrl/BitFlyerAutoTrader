@@ -16,8 +16,8 @@ const bfAPI = new BitFlyer(SECRET.API_KEY, SECRET.API_SECRET);
 const CANDLE_SIZE = VIXConfig.trader.candleSize;
 const PD = VIXConfig.vixStrategyConf.pd;
 const LB = VIXConfig.vixStrategyConf.lb;
-const orderSize = VIXConfig.trader.amount;
-const leverage = VIXConfig.trader.leverage;
+const ORDER_SIZE = VIXConfig.trader.amount;
+const LEVERAGE = VIXConfig.trader.leverage;
 const LOSSCUT_PERCENTAGE = VIXConfig.trader.losscutPercentage;
 const PROFIT_PERCENTAGE = VIXConfig.trader.profitPercentage;
 
@@ -101,7 +101,7 @@ let order = {
     product_code: 'FX_BTC_JPY',
     child_order_type: 'MARKET',
     price: 0,
-    size: orderSize,
+    size: ORDER_SIZE,
 };
 
 ///
@@ -117,9 +117,9 @@ const calcPositionVlauation = () => {
     }
     averagePositionPrice /= numPosition;
     if (currentPosition === 'LONG') {
-        positionValuation = (fxBTCJPY - averagePositionPrice) * orderSize * numPosition;
+        positionValuation = (fxBTCJPY - averagePositionPrice) * ORDER_SIZE * numPosition;
     } else if (currentPosition === 'SHORT') {
-        positionValuation = (averagePositionPrice - fxBTCJPY) * orderSize * numPosition;
+        positionValuation = (averagePositionPrice - fxBTCJPY) * ORDER_SIZE * numPosition;
     }
     losscutIfNeeded();
 }
@@ -142,7 +142,7 @@ const losscutIfNeeded = async() => {
             order.side = 'BUY';
             losscutSignal = 'SELL';
         }
-        order.size = numPosition * orderSize;
+        order.size = numPosition * ORDER_SIZE;
         order.child_order_type = 'MARKET';
         order.price = 0;
 
@@ -210,7 +210,7 @@ const getMaxPosition = async() => {
     if (fxBTCJPY == -1) {
         fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
     }
-    let unitPrice = fxBTCJPY * orderSize / leverage;
+    let unitPrice = fxBTCJPY * ORDER_SIZE / LEVERAGE;
     let result = Math.floor(currentCollateral / unitPrice);
     console.log(`最大建玉数:${result}`);
     return result;
@@ -279,7 +279,7 @@ const vixRSITrade = async() => {
                     order.side = 'BUY';
                     losscutSignal = 'SELL';
                 }
-                order.size = numPosition * orderSize;
+                order.size = numPosition * ORDER_SIZE;
                 order.child_order_type = 'MARKET';
                 order.price = 0;
 
@@ -313,7 +313,7 @@ const vixRSITrade = async() => {
                     losscut = false;
                     losscutSignal = '';
                     order.side = signal;
-                    order.size = orderSize
+                    order.size = ORDER_SIZE
 
                     let sfd = getEstrangementPercentage();
                     if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.9)) {
