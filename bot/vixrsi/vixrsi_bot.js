@@ -121,8 +121,6 @@ const calcPositionVlauation = () => {
     } else if (currentPosition === 'SHORT') {
         positionValuation = (averagePositionPrice - fxBTCJPY) * orderSize * numPosition;
     }
-	console.log(`${fxBTCJPY}, ${averagePositionPrice}, ${numPosition}`);
-	console.log(`${positionValuation}`);
     losscutIfNeeded();
 }
 
@@ -362,7 +360,6 @@ const vixRSITrade = async() => {
                             } else {
                                 console.log('エラーにより正常に発注できませんでした');
                                 console.log(childOrder);
-                                break;
                             }
                         }
                     } else if (signal === 'BUY' && sfd >= 4.9) {
