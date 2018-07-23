@@ -26,9 +26,11 @@ class BitFlyer {
         return await this.sendRequest(method, path, null, true);
     }
 
-    async getHelp() {
-
-
+    //取引所の状態を取得
+    async getHealth() {
+        let method = 'GET';
+        let path = '/v1/gethealth/?product_code=FX_BTC_JPY'
+        return await this.sendPublicRequest(method, path, null);
     }
 
     //証拠金変動履歴を取得
