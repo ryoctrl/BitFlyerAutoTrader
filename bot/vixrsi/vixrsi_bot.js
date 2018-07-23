@@ -149,13 +149,8 @@ const losscutIfNeeded = async() => {
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
-            positionExited = true;
-            numPosition = 0;
-            positions = [];
-            positionValuation = -1;
-            currentPosition = 'CLOSED';
-            whilePositioning = false;
-            maxPosition = await getMaxPosition();
+            positionExitProcess();
+
 
             logMessage += `ロスカットを実行しました. 評価損失:${positionValuation}`;
 
@@ -238,16 +233,32 @@ const requestOrder = async() => {
 
 }
 
+///
+/// 決済時の各種変数の初期化を行う
+///
+const positionExitProcess = async() => {
+    positionExited = true;
+    numPosition = 0;
+    positions = [];
+    positionValuation = -1;
+    currentPosition = 'CLOSED';
+    whilePositioning = false;
+    secureProfit = false;
+    secureProfitDetected = false;
+    maxPosition = await getMaxPosition();
+}
+
+
 
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async() => {
-
     //プログラム開始時に最大ポジション数を算出する
     if (currentCollateral == -1) {
         currentCollateral = (await bfAPI.getCollateral()).collateral;
     }
     maxPosition = await getMaxPosition();
-    console.log(`最大建玉:${maxPosition} で開始します`);
+    logMessage = `最大建玉:${maxPosition}で開始します`;
+    util.logging(LOGNAME, logMessage);
     //一定時間ごとにポジション移行の判断を行う
     try {
         let ohlc = {};
@@ -266,7 +277,6 @@ const vixRSITrade = async() => {
             position = Strategy.getNextPosition(position, signal);
 
             logMessage = `${moment(Date.now()).format('YYYY/MM/DD HH:mm:ss')} - ${signal},${position}`;
-            console.log(logMessage);
             util.logging(LOGNAME, logMessage);
 
             if (signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
@@ -284,6 +294,13 @@ const vixRSITrade = async() => {
 
                 let tryOrderCount = 0;
                 let trySFDContinueCount = 0;
+
+                if (losscut) logMessage = '【ロスカット】';
+                else if (secureProfit) logMessage = '【利食い】';
+                else logMessage = '【手仕舞】';
+
+                logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
+
                 while (true) {
                     if (getEstrangementPercentage() >= 4.995) {
                         trySFDContinueCount++;
@@ -303,67 +320,42 @@ const vixRSITrade = async() => {
                         let id = childOrder.child_order_acceptance_id;
                         let result = await waitContractOrderForFiveSec(id);
                         if (result) {
-
-                            if (losscut) logMessage = '【ロスカット】';
-                            else if (secureProfit) logMessage = '【利食い】';
-                            else logMessage = '手仕舞';
-
-                            logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC, 約定金額:${order.price}`;
-                            positionExited = true;
-                            numPosition = 0;
-                            positions = [];
-                            positionValuation = -1;
-                            currentPosition = 'HOLD';
-                            whilePositioning = false;
-                            secureProfit = false;
-                            secureProfitDetected = false;
-                            maxPosition = await getMaxPosition();
-
+                            logMessage += `, 約定金額:${order.price}, id:${id}`;
+                            positionExitProcess();
                             util.logging(LOGNAME, logMessage);
-                            console.log(childOrder);
                             break;
                         }
-                        console.log('注文が5秒間約定しなかったためキャンセルします。');
+
+                        let errorMessage = '注文が5秒間約定しなかったためキャンセルします。';
+                        util.logging(LOGNAME, errorMessage);
                         let cancelBody = {
                             product_code: 'FX_BTC_JPY',
                             child_order_acceptance_id: id
                         };
                         bfAPI.cancelChildorder(cancelBody);
                         if (tryOrderCount >= 5) {
-                            logMessage = `5回以上注文が通らなかったため成行で決済します。`
+                            errorMessage = '5回以上注文が通らなかったため成行で決済します。';
+                            util.logging(LOGNAME, errorMessage);
+
                             order.child_order_type = 'MARKET';
                             order.price = 0;
 
                             let childOrder = await bfAPI.sendChildorder(order);
 
                             if (childOrder.child_order_acceptance_id) {
-                                if (losscut) logMessage = '【ロスカット】';
-                                else if (secureProfit) logMessage = '【利食い】';
-                                else logMessage = '手仕舞';
+                                logMessage += `, 約定金額:成行, id:${childOrder.child_order_acceptance_id}`;
 
-                                logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC, 約定金額:${order.price}`;
-                                positionExited = true;
-                                numPosition = 0;
-                                positions = [];
-                                positionValuation = -1;
-                                currentPosition = 'HOLD';
-                                whilePositioning = false;
-                                secureProfit = false;
-                                secureProfitDetected = false;
-                                maxPosition = await getMaxPosition();
+                                positionExitProcess();
 
                                 util.logging(LOGNAME, logMessage);
-                                console.log(childOrder);
                                 break;
                             }
-                            console.log(logMessage);
-                            util.logging(LOGNAME, logMessage);
-                            break;
                         }
-
                     } else {
-                        console.log("何らかのエラーにより決済注文が通りませんでした");
-                        console.log(childOrder);
+                        let errorMessage = '何らかのエラーにより決済注文が通らなかったため1秒後に再注文します。\n';
+                        if (childOrder.error_message) errorMessage += childOrder.error_message;
+                        util.logging(LOGNAME, errorMessage);
+                        await sleepSec(1);
                     }
                 }
             } else if (signal === 'BUY' || signal === 'SELL') {
@@ -397,39 +389,41 @@ const vixRSITrade = async() => {
                                     currentPosition = position;
                                     whilePositioning = true;
                                     positionExited = false;
-                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}`;
-                                    console.log(logMessage);
+                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}`;
                                     util.logging(LOGNAME, logMessage);
-                                    console.log(childOrder);
                                     break;
                                 }
 
-                                console.log('注文が5秒間約定しなかったためキャンセルします。');
+                                let errorMessage = '注文が5秒間約定しなかったためキャンセルします。';
+                                util.logging(LOGNAME, errorMessage);
                                 let cancelBody = {
                                     product_code: 'FX_BTC_JPY',
                                     child_order_acceptance_id: id
                                 };
                                 bfAPI.cancelChildorder(cancelBody);
-                                if (tryOrderCount >= 5) {
-                                    logMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
-                                    console.log(logMessage);
-                                    util.logging(LOGNAME, logMessage);
-                                    break;
-                                }
                             } else {
-                                console.log('エラーにより正常に発注できませんでした');
-                                console.log(childOrder);
+                                let errorMessage = '何らかエラーにより正常に発注できませんでした。\n';
+                                if (childOrder.error_mssage) errorMessage += childOrder.error_message;
+                                util.logging(errorMessage);
+                                await sleepSec(1);
+                            }
+
+                            if (tryOrderCount >= 5) {
+                                errorMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
+                                util.logging(LOGNAME, errorMessage);
+                                break;
                             }
                         }
                     } else if (signal === 'BUY' && sfd >= 4.9) {
-                        logMessage = `乖離率が${sfd}%でSFDを徴収される可能性があるため注文をスルーしました。`;
-                        console.log(logMessage);
+                        logMessage = `乖離率が${sfd}%でSFDを徴収される可能性があるためエントリーをスルーしました。`;
                         util.logging(LOGNAME, logMessage);
                     } else {
                         logMessage = `何らかの原因により注文をスルーしました。`;
-                        console.log(logMessage);
                         util.logging(LOGNAME, logMessage);
                     }
+                } else {
+                    logMessage = `ロスカット中または建玉数が限度に達しているのでエントリーをスルーしました。`;
+                    util.logging(logMessage);
                 }
             }
             await sleepSec(interval * CANDLE_SIZE - 1);
