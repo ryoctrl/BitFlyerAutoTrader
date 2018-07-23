@@ -128,7 +128,7 @@ const calcPositionVlauation = () => {
 ///
 ///
 const losscutIfNeeded = async() => {
-    if(num == 0 || positionValuation == -1 || currentCollateral == -1) return;
+    if(numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
 
     if(checkLosscut()) {
         if(currentPosition === 'LONG') {
@@ -142,6 +142,7 @@ const losscutIfNeeded = async() => {
         order.child_order_type = 'MARKET';
         order.price = 0;
 
+	let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
             positionExited = true;
