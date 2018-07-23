@@ -92,6 +92,8 @@ let secureProfit = false;
 let secureProfitDetected = false;
 //ロスカット認識時のポジション
 let losscutSignal = '';
+//ロスカット中のフラグ
+let losscutting = false;
 //ロギング用のメッセージ
 let logMessage = '';
 //注文用Object
@@ -109,16 +111,18 @@ let order = {
 ///
 const calcPositionVlauation = () => {
     if (numPosition == 0 || positions.length == 0) return;
-    let averagePositionPrice = -1;
+    let averagePositionPrice = 0;
     for (let position of positions) {
         averagePositionPrice += position;
     }
     averagePositionPrice /= numPosition;
     if (currentPosition === 'LONG') {
-        positionValuation = (fxBTCJPY - averagePositionPrice) * numPosition;
+        positionValuation = (fxBTCJPY - averagePositionPrice) * orderSize * numPosition;
     } else if (currentPosition === 'SHORT') {
-        positionValuation = (averagePositionPrice - fxBTCJPY) * numPosition;
+        positionValuation = (averagePositionPrice - fxBTCJPY) * orderSize * numPosition;
     }
+	console.log(`${fxBTCJPY}, ${averagePositionPrice}, ${numPosition}`);
+	console.log(`${positionValuation}`);
     losscutIfNeeded();
 }
 
@@ -130,7 +134,9 @@ const calcPositionVlauation = () => {
 const losscutIfNeeded = async() => {
     if(numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
 
-    if(checkLosscut()) {
+    if(checkLosscut() && !losscutting) {
+	losscutting = true;
+	console.log(`LOSSCUT, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
         if(currentPosition === 'LONG') {
             order.side = 'SELL';
             losscutSignal = 'BUY';
@@ -168,15 +174,10 @@ const losscutIfNeeded = async() => {
 /// 証拠金と評価評価損益からロスカットの可否を返す
 ///
 const checkLosscut = () => {
-    if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
+    if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return false;
 
     //評価損益 が -1 * (証拠金 * (LOSSCUT_PERCENTAGE / 100)以下である場合
     return positionValuation <= -(currentCollateral * (LOSSCUT_PERCENTAGE / 100));
-
-    //let collateral = await bfAPI.getCollateral();
-    //let amount = collateral.collateral;
-    //let pnl = collateral.open_position_pnl;
-    //return pnl <= -(amount * (LOSSCUT_PERCENTAGE / 100));
 };
 
 ///
@@ -334,8 +335,8 @@ const vixRSITrade = async() => {
                                 let id = childOrder.child_order_acceptance_id;
                                 let result = await waitContractOrderForFiveSec(id);
                                 if (result) {
-                                    numPosition++;
                                     positions.push(order.price);
+                                    numPosition++;
                                     currentPosition = position;
                                     whilePositioning = true;
                                     positionExited = false;
