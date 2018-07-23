@@ -128,7 +128,7 @@ const calcPositionVlauation = () => {
 ///
 ///
 const losscutIfNeeded = async() => {
-    if(num == 0 || positionValuation == -1 || currentCOllateral == -1) return;
+    if(num == 0 || positionValuation == -1 || currentCollateral == -1) return;
 
     if(checkLosscut()) {
         if(currentPosition === 'LONG') {
@@ -146,6 +146,8 @@ const losscutIfNeeded = async() => {
             logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
             positionExited = true;
             numPosition = 0;
+            positions = [];
+            positionValuation = -1;
             currentPosition = 'CLOSED';
             whilePositioning = false;
             maxPosition = await getMaxPosition();
@@ -168,7 +170,7 @@ const checkLosscut = () => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
 
     //評価損益 が -1 * (証拠金 * (LOSSCUT_PERCENTAGE / 100)以下である場合
-    return positionValuation <= -(currentCOllateral * (LOSSCUT_PERCENTAGE / 100));
+    return positionValuation <= -(currentCollateral * (LOSSCUT_PERCENTAGE / 100));
 
     //let collateral = await bfAPI.getCollateral();
     //let amount = collateral.collateral;
@@ -202,14 +204,14 @@ const checkSecureProfit = async(detected) => {
 ///
 const getMaxPosition = async() => {
     if (currentCollateral == -1) {
-        collateral = (await bfAPI.getCollateral()).collateral;
+        currentCollateral = (await bfAPI.getCollateral()).collateral;
     }
-    console.log(`証拠金:${collateral}円`);
+    console.log(`証拠金:${currentCollateral}円`);
     if (fxBTCJPY == -1) {
         fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
     }
     let unitPrice = fxBTCJPY * orderSize / leverage;
-    let result = Math.floor(collateral / unitPrice);
+    let result = Math.floor(currentCollateral / unitPrice);
     console.log(`最大建玉数:${result}`);
     return result;
 };
@@ -241,7 +243,9 @@ const requestOrder = async () => {
 const vixRSITrade = async() => {
     
     //プログラム開始時に最大ポジション数を算出する
-    currentCOllateral = (await getCollateral()).collateral;
+    if(currentCollateral == -1) {
+        currentCollateral = (await getCollateral()).collateral;
+    }
     maxPosition = await getMaxPosition();
     console.log(`最大建玉:${maxPosition} で開始します`);
     //一定時間ごとにポジション移行の判断を行う
@@ -284,7 +288,9 @@ const vixRSITrade = async() => {
                 if (childOrder.child_order_acceptance_id) {
                     logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
                     positionExited = true;
-                    numPosition = 0.0;
+                    numPosition = 0;
+                    positions = [];
+                    positionValuation = -1;
                     currentPosition = 'HOLD';
                     whilePositioning = false;
                     secureProfit = false;
