@@ -47,6 +47,7 @@ socket.on(FX_TICKER_CHANNEL, message => {
 
 socket.on(FX_EXECUTIONS_CHANNEL, message => {
     fxBTCJPY = message[0].price;
+    calcPositionVlauation();
 });
 
 socket.on(SPOT_EXECUTIONS_CHANNEL, message => {
@@ -73,7 +74,33 @@ let numPosition = 0;
 let currentCollateral = -1;
 //現在のポジション
 let currentPosition = 'CLOSED';
-
+//ロスカットフラグ
+let losscut = false;
+//ロスカット時のポジション決済フラグ
+let positionExited = false;
+//現在のポジション
+let position = 'CLOSED';
+//Strategyから渡されるシグナル
+let signal = 'HOLD';
+//動作間隔 == ローソク足間隔
+let interval = 60;
+//建玉所持中フラグ
+let whilePositioning = false;
+//利確フラグ
+let secureProfit = false;
+//利確認識フラグ
+let secureProfitDetected = false;
+//ロスカット認識時のポジション
+let losscutSignal = '';
+//ロギング用のメッセージ
+let logMessage = '';
+//注文用Object
+let order = {
+    product_code: 'FX_BTC_JPY',
+    child_order_type: 'MARKET',
+    price: 0,
+    size: orderSize,
+};
 
 ///
 /// fxBTCJPYの価格から現状の評価損益を設定する
@@ -81,7 +108,7 @@ let currentPosition = 'CLOSED';
 ///
 ///
 const calcPositionVlauation = () => {
-    if (numPosition == 0 || positions.length == 0 || currentCollateral == -1) return;
+    if (numPosition == 0 || positions.length == 0) return;
     let averagePositionPrice = -1;
     for (let position of positions) {
         averagePositionPrice += position;
@@ -97,22 +124,56 @@ const calcPositionVlauation = () => {
 
 ///
 /// 必要であればLosscutを行う
-///
+/// TODO: オーダー処理を切り出してDRY原則に適応
 ///
 ///
 const losscutIfNeeded = async() => {
-    //TODO: implement method.
+    if(num == 0 || positionValuation == -1 || currentCOllateral == -1) return;
+
+    if(checkLosscut()) {
+        if(currentPosition === 'LONG') {
+            order.side = 'SELL';
+            losscutSignal = 'BUY';
+        } else if(currentPosition === 'SHORT') {
+            order.side = 'BUY';
+            losscutSignal = 'SELL';
+        }
+        order.size = numPosition * orderSize;
+        order.child_order_type = 'MARKET';
+        order.price = 0;
+
+        if (childOrder.child_order_acceptance_id) {
+            logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
+            positionExited = true;
+            numPosition = 0;
+            currentPosition = 'CLOSED';
+            whilePositioning = false;
+            maxPosition = await getMaxPosition();
+
+            logMessage += `ロスカットを実行しました. 評価損失:${positionValuation}`;
+
+            util.logging(LOGNAME, logMessage);
+            console.log(childOrder);
+        } else {
+            console.log("何らかのエラーにより決済注文が通りませんでした");
+            console.log(childOrder);
+        }
+    }
 }
 
 ///
 /// 証拠金と評価評価損益からロスカットの可否を返す
 ///
-const checkLosscut = async() => {
-    if (numPosition == 0 || positionValuation == -1) return;
-    let collateral = await bfAPI.getCollateral();
-    let amount = collateral.collateral;
-    let pnl = collateral.open_position_pnl;
-    return pnl <= -(amount * (LOSSCUT_PERCENTAGE / 100));
+const checkLosscut = () => {
+    if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
+
+    //評価損益 が -1 * (証拠金 * (LOSSCUT_PERCENTAGE / 100)以下である場合
+    return positionValuation <= -(currentCOllateral * (LOSSCUT_PERCENTAGE / 100));
+
+    //let collateral = await bfAPI.getCollateral();
+    //let amount = collateral.collateral;
+    //let pnl = collateral.open_position_pnl;
+    //return pnl <= -(amount * (LOSSCUT_PERCENTAGE / 100));
 };
 
 ///
@@ -166,38 +227,19 @@ const getEstrangementPercentage = () => {
 }
 
 
+///
+/// 注文処理を行う
+///
+///
+///
+const requestOrder = async () => {
+
+}
 
 
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async() => {
-    //現在のポジション
-    let position = 'CLOSED';
-    //Strategyから渡されるシグナル
-    let signal = 'HOLD';
-    let order = {
-        product_code: 'FX_BTC_JPY',
-        child_order_type: 'MARKET',
-        price: 0,
-        size: orderSize,
-    };
-
-    //動作間隔 == ローソク足間隔
-    let interval = 60;
-    //建玉所持中フラグ
-    let whilePositioning = false;
-    //利確フラグ
-    let secureProfit = false;
-    //利確認識フラグ
-    let secureProfitDetected = false;
-    //ロスカット時のポジション決済フラグ
-    let positionExited = false;
-    //ロスカットフラグ
-    let losscut = false;
-    //ロスカット認識時のポジション
-    let losscutSignal = '';
-    //ロギング用のメッセージ
-    let logMessage = '';
-
+    
     //プログラム開始時に最大ポジション数を算出する
     currentCOllateral = (await getCollateral()).collateral;
     maxPosition = await getMaxPosition();
@@ -207,17 +249,11 @@ const vixRSITrade = async() => {
         let ohlc = {};
         while (true) {
             //ロスカット or 利確をチェック
-            if (whilePositioning) {
-                if (!losscut) {
-                    losscut = await checkLosscut();
-                }
-                //Losscutと同時成立は多分あり得ない上awaitで時間の無駄になるのでlosscut成立時はチェックしない
-                if (!losscut) {
-                    if (!secureProfitDetected) {
-                        secureProfitDetected = await checkSecureProfit(secureProfitDetected);
-                    } else {
-                        secureProfit = await checkSecureProfit(secureProfitDetected);
-                    }
+            if (whilePositioning && !losscut) {
+                if (!secureProfitDetected) {
+                    secureProfitDetected = await checkSecureProfit(secureProfitDetected);
+                } else {
+                    secureProfit = await checkSecureProfit(secureProfitDetected);
                 }
             }
 
@@ -230,7 +266,7 @@ const vixRSITrade = async() => {
             util.logging(LOGNAME, logMessage);
 
             if (signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
-                if ((!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
+                if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
 
                 if (currentPosition === 'LONG') {
                     order.side = 'SELL';
@@ -266,7 +302,7 @@ const vixRSITrade = async() => {
                     console.log(childOrder);
                 }
             } else if (signal === 'BUY' || signal === 'SELL') {
-                if (!(losscut && losscutSignal == signal) || numPosition < maxPosition) {
+                if (!(losscut && losscutSignal == signal) && numPosition < maxPosition) {
 
                     losscut = false;
                     losscutSignal = '';
