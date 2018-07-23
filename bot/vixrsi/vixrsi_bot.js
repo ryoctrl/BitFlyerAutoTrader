@@ -244,7 +244,7 @@ const vixRSITrade = async() => {
     
     //プログラム開始時に最大ポジション数を算出する
     if(currentCollateral == -1) {
-        currentCollateral = (await getCollateral()).collateral;
+        currentCollateral = (await bfAPI.getCollateral()).collateral;
     }
     maxPosition = await getMaxPosition();
     console.log(`最大建玉:${maxPosition} で開始します`);
