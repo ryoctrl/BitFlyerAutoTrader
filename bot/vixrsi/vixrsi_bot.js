@@ -130,15 +130,15 @@ const calcPositionVlauation = () => {
 ///
 ///
 const losscutIfNeeded = async() => {
-    if(numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
+    if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
 
-    if(checkLosscut() && !losscutting) {
-	losscutting = true;
-	console.log(`LOSSCUT, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
-        if(currentPosition === 'LONG') {
+    if (checkLosscut() && !losscutting) {
+        losscutting = true;
+        console.log(`LOSSCUT, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
+        if (currentPosition === 'LONG') {
             order.side = 'SELL';
             losscutSignal = 'BUY';
-        } else if(currentPosition === 'SHORT') {
+        } else if (currentPosition === 'SHORT') {
             order.side = 'BUY';
             losscutSignal = 'SELL';
         }
@@ -146,7 +146,7 @@ const losscutIfNeeded = async() => {
         order.child_order_type = 'MARKET';
         order.price = 0;
 
-	let childOrder = await bfAPI.sendChildorder(order);
+        let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
             positionExited = true;
@@ -234,16 +234,16 @@ const getEstrangementPercentage = () => {
 ///
 ///
 ///
-const requestOrder = async () => {
+const requestOrder = async() => {
 
 }
 
 
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async() => {
-    
+
     //プログラム開始時に最大ポジション数を算出する
-    if(currentCollateral == -1) {
+    if (currentCollateral == -1) {
         currentCollateral = (await bfAPI.getCollateral()).collateral;
     }
     maxPosition = await getMaxPosition();
@@ -280,32 +280,91 @@ const vixRSITrade = async() => {
                     losscutSignal = 'SELL';
                 }
                 order.size = numPosition * ORDER_SIZE;
-                order.child_order_type = 'MARKET';
-                order.price = 0;
+                order.child_order_type = 'LIMIT';
 
-                let childOrder = await bfAPI.sendChildorder(order);
+                let tryOrderCount = 0;
+                let trySFDContinueCount = 0;
+                while (true) {
+                    if (getEstrangementPercentage() >= 4.995) {
+                        trySFDContinueCount++;
+                        await sleepSec(1);
+                        if (trySFDContinueCount < 10) continue;
+                    }
+                    if (currentPosition === 'LONG') {
+                        order.price = bestBid;
+                    } else if (currentPosition === 'SHORT') {
+                        order.price = bestAsk;
+                    }
+                    let childOrder = await bfAPI.sendChildorder(order);
 
-                if (childOrder.child_order_acceptance_id) {
-                    logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
-                    positionExited = true;
-                    numPosition = 0;
-                    positions = [];
-                    positionValuation = -1;
-                    currentPosition = 'HOLD';
-                    whilePositioning = false;
-                    secureProfit = false;
-                    secureProfitDetected = false;
-                    maxPosition = await getMaxPosition();
+                    if (childOrder.child_order_acceptance_id) {
+                        tryOrderCount++;
 
-                    if (losscut) logMessage = 'ロスカット';
-                    else if (secureProfit) logMessage = '利食い';
-                    else logMessage = '手仕舞';
+                        let id = childOrder.child_order_acceptance_id;
+                        let result = await waitContractOrderForFiveSec(id);
+                        if (result) {
 
-                    util.logging(LOGNAME, logMessage);
-                    console.log(childOrder);
-                } else {
-                    console.log("何らかのエラーにより決済注文が通りませんでした");
-                    console.log(childOrder);
+                            if (losscut) logMessage = '【ロスカット】';
+                            else if (secureProfit) logMessage = '【利食い】';
+                            else logMessage = '手仕舞';
+
+                            logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC, 約定金額:${order.price}`;
+                            positionExited = true;
+                            numPosition = 0;
+                            positions = [];
+                            positionValuation = -1;
+                            currentPosition = 'HOLD';
+                            whilePositioning = false;
+                            secureProfit = false;
+                            secureProfitDetected = false;
+                            maxPosition = await getMaxPosition();
+
+                            util.logging(LOGNAME, logMessage);
+                            console.log(childOrder);
+                            break;
+                        }
+                        console.log('注文が5秒間約定しなかったためキャンセルします。');
+                        let cancelBody = {
+                            product_code: 'FX_BTC_JPY',
+                            child_order_acceptance_id: id
+                        };
+                        bfAPI.cancelChildorder(cancelBody);
+                        if (tryOrderCount >= 5) {
+                            logMessage = `5回以上注文が通らなかったため成行で決済します。`
+                            order.child_order_type = 'MARKET';
+                            order.price = 0;
+
+                            let childOrder = await bfAPI.sendChildorder(order);
+
+                            if (childOrder.child_order_acceptance_id) {
+                                if (losscut) logMessage = '【ロスカット】';
+                                else if (secureProfit) logMessage = '【利食い】';
+                                else logMessage = '手仕舞';
+
+                                logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC, 約定金額:${order.price}`;
+                                positionExited = true;
+                                numPosition = 0;
+                                positions = [];
+                                positionValuation = -1;
+                                currentPosition = 'HOLD';
+                                whilePositioning = false;
+                                secureProfit = false;
+                                secureProfitDetected = false;
+                                maxPosition = await getMaxPosition();
+
+                                util.logging(LOGNAME, logMessage);
+                                console.log(childOrder);
+                                break;
+                            }
+                            console.log(logMessage);
+                            util.logging(LOGNAME, logMessage);
+                            break;
+                        }
+
+                    } else {
+                        console.log("何らかのエラーにより決済注文が通りませんでした");
+                        console.log(childOrder);
+                    }
                 }
             } else if (signal === 'BUY' || signal === 'SELL') {
                 if (!(losscut && losscutSignal == signal) && numPosition < maxPosition) {
