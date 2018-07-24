@@ -183,7 +183,7 @@ const checkLosscut = () => {
 /// 証拠金と評価損益から利確の可否を返す
 ///
 const checkSecureProfit = () => {
-    if (numPosition == 0 || positionValuation == -1 || currentCOllateral == -1) return false;
+    if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return false;
     return positionValuation >= currentCollateral * (PROFIT_PERCENTAGE / 100);
 };
 
@@ -386,7 +386,7 @@ const vixRSITrade = async() => {
                     order.size = ORDER_SIZE
 
                     let sfd = getEstrangementPercentage();
-                    if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.95)) {
+                    if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.93)) {
                         let tryOrderCount = 0;
                         while (true) {
                             if (signal === 'BUY' && bestAsk != -1) {
