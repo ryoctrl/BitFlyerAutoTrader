@@ -151,7 +151,7 @@ const losscutIfNeeded = async() => {
 
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
-            logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
+            logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
             positionExitProcess();
 
             losscutting = false;
@@ -207,7 +207,7 @@ const takeProfitIfNeeded = async() => {
 
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
-            logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
+            logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
             positionExitProcess();
 
             takeProfitting = false;
@@ -309,7 +309,7 @@ const vixRSITrade = async() => {
                 let tryOrderCount = 0;
                 let trySFDContinueCount = 0;
 
-                logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
+                logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${order.size}BTC`;
 
                 while (true) {
                     if (getEstrangementPercentage() >= 4.95) {
@@ -414,6 +414,7 @@ const vixRSITrade = async() => {
                             } else {
                                 let errorMessage = '何らかエラーにより正常に発注できませんでした。\n';
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
+				console.log(order);
                                 util.logging(LOGNAME, errorMessage);
                                 await sleepSec(1);
                             }
@@ -429,6 +430,7 @@ const vixRSITrade = async() => {
                         util.logging(LOGNAME, logMessage);
                     } else {
                         logMessage = `何らかの原因により注文をスルーしました。`;
+			console.log(order);
                         util.logging(LOGNAME, logMessage);
                     }
                 } else {
