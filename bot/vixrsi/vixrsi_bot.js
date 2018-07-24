@@ -90,6 +90,8 @@ let whilePositioning = false;
 let secureProfit = false;
 //利確認識フラグ
 let secureProfitDetected = false;
+//利食い中のフラグ
+let takeProfitting = false;
 //ロスカット認識時のポジション
 let losscutSignal = '';
 //ロスカット中のフラグ
@@ -122,6 +124,7 @@ const calcPositionVlauation = () => {
         positionValuation = (averagePositionPrice - fxBTCJPY) * ORDER_SIZE * numPosition;
     }
     losscutIfNeeded();
+    takeProfitIfNeeded();
 }
 
 ///
@@ -134,7 +137,7 @@ const losscutIfNeeded = async() => {
 
     if (checkLosscut() && !losscutting) {
         losscutting = true;
-        console.log(`LOSSCUT, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
+        console.log(`【ロスカット】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
         if (currentPosition === 'LONG') {
             order.side = 'SELL';
             losscutSignal = 'BUY';
@@ -151,12 +154,15 @@ const losscutIfNeeded = async() => {
             logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
             positionExitProcess();
 
+            losscutting = false;
 
-            logMessage += `ロスカットを実行しました. 評価損失:${positionValuation}`;
+
+            logMessage += `ロスカットを実行しました. 損失:${positionValuation}`;
 
             util.logging(LOGNAME, logMessage);
             console.log(childOrder);
         } else {
+            losscutting = false;
             console.log("何らかのエラーにより決済注文が通りませんでした");
             console.log(childOrder);
         }
@@ -175,22 +181,49 @@ const checkLosscut = () => {
 
 ///
 /// 証拠金と評価損益から利確の可否を返す
-/// detectedにfalseを指定すると評価損益が基準額以上
-/// detectedにtrueを指定すると評価損益が基準額以下でtrueを返す
-/// 一度認識した後にその額を下回れば損失になる前に利確するスタンス
 ///
-const checkSecureProfit = async(detected) => {
-    let collateral = await bfAPI.getCollateral();
-    let amount = collateral.collateral;
-    let pnl = collateral.open_position_pnl;
-    return result = false;
-    if (detected) {
-        result = pnl <= amount * (PROFIT_PERCENTAGE / 100);
-    } else {
-        result = pnl >= amount * (PROFIT_PERCENTAGE / 100);
-    }
-    return result;
+const checkSecureProfit = () => {
+    if (numPosition == 0 || positionValuation == -1 || currentCOllateral == -1) return false;
+    return positionValuation >= currentCollateral * (PROFIT_PERCENTAGE / 100);
 };
+
+
+
+const takeProfitIfNeeded = async() => {
+    if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
+
+    if (checkSecureProfit() && !takeProfitting) {
+        takeProfitting = true;
+
+        console.log(`【利食い】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${currentCollateral * (LOSSCUT_PERCENTAGE / 100)}`);
+        if (currentPosition === 'LONG') {
+            order.side = 'SELL';
+        } else if (currentPosition === 'SHORT') {
+            order.side = 'BUY';
+        }
+        order.size = numPosition * ORDER_SIZE;
+        order.child_order_type = 'MARKET';
+        order.price = 0;
+
+        let childOrder = await bfAPI.sendChildorder(order);
+        if (childOrder.child_order_acceptance_id) {
+            logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC\n`;
+            positionExitProcess();
+
+            takeProfitting = false;
+
+
+            logMessage += `利食いを実行しました.　利益:${positionValuation}`;
+
+            util.logging(LOGNAME, logMessage);
+            console.log(childOrder);
+        } else {
+            takeProfitting = false;
+            console.log("何らかのエラーにより決済注文が通りませんでした");
+            console.log(childOrder);
+        }
+    }
+}
 
 ///
 /// 証拠金とBTCFXの現在価格から最大建玉数を算出する
@@ -263,15 +296,6 @@ const vixRSITrade = async() => {
     try {
         let ohlc = {};
         while (true) {
-            //ロスカット or 利確をチェック
-            if (whilePositioning && !losscut) {
-                if (!secureProfitDetected) {
-                    secureProfitDetected = await checkSecureProfit(secureProfitDetected);
-                } else {
-                    secureProfit = await checkSecureProfit(secureProfitDetected);
-                }
-            }
-
             ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
             signal = Strategy.vixRsiSignal(ohlc, position);
             position = Strategy.getNextPosition(position, signal);
@@ -279,7 +303,7 @@ const vixRSITrade = async() => {
             logMessage = `${moment(Date.now()).format('YYYY/MM/DD HH:mm:ss')} - ${signal},${position}`;
             util.logging(LOGNAME, logMessage);
 
-            if (signal === 'EXIT' || (losscut && !positionExited) || secureProfit) {
+            if (signal === 'EXIT') {
                 if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
 
                 if (currentPosition === 'LONG') {
@@ -295,11 +319,7 @@ const vixRSITrade = async() => {
                 let tryOrderCount = 0;
                 let trySFDContinueCount = 0;
 
-                if (losscut) logMessage = '【ロスカット】';
-                else if (secureProfit) logMessage = '【利食い】';
-                else logMessage = '【手仕舞】';
-
-                logMessage += `ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
+                logMessage += `【手仕舞】ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
 
                 while (true) {
                     if (getEstrangementPercentage() >= 4.95) {
