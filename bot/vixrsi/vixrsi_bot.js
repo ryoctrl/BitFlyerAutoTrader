@@ -231,9 +231,8 @@ const takeProfitIfNeeded = async() => {
 /// 切り捨て(2000 / (600000 * 0.01 / 15)) => 5
 ///
 const getMaxPosition = async() => {
-    if (currentCollateral == -1) {
-        currentCollateral = (await bfAPI.getCollateral()).collateral;
-    }
+    currentCollateral = (await bfAPI.getCollateral()).collateral;
+
     console.log(`証拠金:${currentCollateral}円`);
     if (fxBTCJPY == -1) {
         fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
