@@ -404,7 +404,7 @@ const vixRSITrade = async() => {
                             } else {
                                 let errorMessage = '何らかエラーにより正常に発注できませんでした。\n';
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
-                                util.logging(errorMessage);
+                                util.logging(LOGNAME, errorMessage);
                                 await sleepSec(1);
                             }
 
@@ -423,7 +423,7 @@ const vixRSITrade = async() => {
                     }
                 } else {
                     logMessage = `ロスカット中または建玉数が限度に達しているのでエントリーをスルーしました。`;
-                    util.logging(logMessage);
+                    util.logging(LOGNAME, logMessage);
                 }
             }
             await sleepSec(interval * CANDLE_SIZE - 1);
