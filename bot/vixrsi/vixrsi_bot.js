@@ -255,16 +255,6 @@ const getEstrangementPercentage = () => {
     return estrangementPercentage;
 }
 
-
-///
-/// 注文処理を行う
-///
-///
-///
-const requestOrder = async() => {
-
-}
-
 ///
 /// 決済時の各種変数の初期化を行う
 ///
@@ -274,6 +264,7 @@ const positionExitProcess = async() => {
     positions = [];
     positionValuation = -1;
     currentPosition = 'CLOSED';
+    position = 'CLOSED';
     whilePositioning = false;
     secureProfit = false;
     secureProfitDetected = false;
@@ -318,7 +309,7 @@ const vixRSITrade = async() => {
                 let tryOrderCount = 0;
                 let trySFDContinueCount = 0;
 
-                logMessage += `【手仕舞】ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
+                logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${numPosition * order.size}BTC`;
 
                 while (true) {
                     if (getEstrangementPercentage() >= 4.95) {
