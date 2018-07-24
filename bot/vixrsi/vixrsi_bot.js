@@ -137,6 +137,7 @@ const losscutIfNeeded = async() => {
 
     if (checkLosscut() && !losscutting) {
         losscutting = true;
+	losscut = true;
         console.log(`【ロスカット】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
         if (currentPosition === 'LONG') {
             order.side = 'SELL';
