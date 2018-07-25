@@ -296,6 +296,10 @@ const vixRSITrade = async() => {
 
             if (signal === 'EXIT') {
                 if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
+		if (numPosition == 0) {
+			await sleepSec(interval * CANDLE_SIZE - 1);
+			continue;
+		}
 
                 if (currentPosition === 'LONG') {
                     order.side = 'SELL';
@@ -365,6 +369,7 @@ const vixRSITrade = async() => {
                     } else {
                         let errorMessage = '何らかのエラーにより決済注文が通らなかったため1秒後に再注文します。\n';
                         if (childOrder.error_message) errorMessage += childOrder.error_message;
+			console.log(order);
                         util.logging(LOGNAME, errorMessage);
                         await sleepSec(1);
                     }
