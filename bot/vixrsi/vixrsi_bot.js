@@ -209,12 +209,10 @@ const takeProfitIfNeeded = async() => {
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
+	    logMessage += `利食いを実行しました. 利益:${positionValuation}`;
+
             positionExitProcess();
-
             takeProfitting = false;
-
-
-            logMessage += `利食いを実行しました.　利益:${positionValuation}`;
 
             util.logging(LOGNAME, logMessage);
             console.log(childOrder);
