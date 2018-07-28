@@ -347,7 +347,7 @@ const vixRSITrade = async() => {
                             break;
                         }
 
-                        let errorMessage = '注文が5秒間約定しなかったためキャンセルします。';
+                        let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
                         util.logging(LOGNAME, errorMessage);
                         let cancelBody = {
                             product_code: 'FX_BTC_JPY',
@@ -411,12 +411,12 @@ const vixRSITrade = async() => {
                                     currentPosition = position;
                                     whilePositioning = true;
                                     positionExited = false;
-                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}`;
+                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}, SFD:${sfd}`;
                                     util.logging(LOGNAME, logMessage);
                                     break;
                                 }
 
-                                let errorMessage = '注文が5秒間約定しなかったためキャンセルします。';
+                                let errorMessage = 'エントリー注文が5秒間約定しなかったため再注文します。';
                                 util.logging(LOGNAME, errorMessage);
                                 let cancelBody = {
                                     product_code: 'FX_BTC_JPY',
@@ -424,7 +424,7 @@ const vixRSITrade = async() => {
                                 };
                                 bfAPI.cancelChildorder(cancelBody);
                             } else {
-                                let errorMessage = '何らかエラーにより正常に発注できませんでした。\n';
+                                let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
 				console.log(order);
                                 util.logging(LOGNAME, errorMessage);
@@ -432,7 +432,7 @@ const vixRSITrade = async() => {
                             }
 
                             if (tryOrderCount >= 5) {
-                                errorMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
+                                errorMessage = `5回以上注文が通らなかったため今回のエントリーをスルーします。`
                                 util.logging(LOGNAME, errorMessage);
                                 break;
                             }
@@ -446,7 +446,9 @@ const vixRSITrade = async() => {
                         util.logging(LOGNAME, logMessage);
                     }
                 } else {
-                    logMessage = `ロスカット中または建玉数が限度に達しているのでエントリーをスルーしました。`;
+		    if(numPosition >= maxPosition) logMessage = '建玉数が限度に達しているのでエントリーをスルーしました。';
+		    else logMessage = 'ロスカット中の為エントリーをスルーしました。';
+		    if(losscut) losscuttingCount++;
                     util.logging(LOGNAME, logMessage);
                 }
             }
