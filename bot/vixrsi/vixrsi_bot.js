@@ -96,6 +96,8 @@ let takeProfitting = false;
 let losscutSignal = '';
 //ロスカット中のフラグ
 let losscutting = false;
+//ロスカット期間のカウンタ
+let losscuttingCount = 0;
 //ロギング用のメッセージ
 let logMessage = '';
 //注文用Object
@@ -285,6 +287,11 @@ const vixRSITrade = async() => {
     try {
         let ohlc = {};
         while (true) {
+            if(losscut && losscuttingCount >= 60) {
+		losscut = false;
+		losscutSignal = '';
+		losscuttingCount = 0;
+	    }
             ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
             signal = Strategy.vixRsiSignal(ohlc, position);
             position = Strategy.getNextPosition(position, signal);
