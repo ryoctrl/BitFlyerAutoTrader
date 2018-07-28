@@ -323,7 +323,7 @@ const vixRSITrade = async() => {
                 logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${order.size}BTC`;
 
                 while (true) {
-                    if (getEstrangementPercentage() >= 4.95) {
+                    if (getEstrangementPercentage() >= 4.95 && currentPosition === 'SHORT') {
                         trySFDContinueCount++;
                         await sleepSec(1);
                         if (trySFDContinueCount < 10) continue;
@@ -392,6 +392,10 @@ const vixRSITrade = async() => {
                     if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.93)) {
                         let tryOrderCount = 0;
                         while (true) {
+			    if(tryOrderCount && signal === 'BUY') {
+				sfd = getEstrangementPercentage();
+				if(sfd >= 4.93) continue;
+			    }
                             if (signal === 'BUY' && bestAsk != -1) {
                                 order.child_order_type = 'LIMIT';
                                 order.price = bestAsk;
