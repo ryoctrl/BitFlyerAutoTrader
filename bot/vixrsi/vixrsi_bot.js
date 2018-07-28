@@ -245,7 +245,7 @@ const getMaxPosition = async() => {
 };
 
 ///
-/// 現在の現物とFXとの価格乖離(%)を取得する
+/// 現在の現物とFXとの価格乖離(%)を少数第二位まで取得する
 /// どちらかの最終取引価格が未受信であれば0を返す
 /// 価格乖離 (%) = （Lightning FX 取引価格 ÷ Lightning 現物 （BTC/JPY）最終取引価格 − 1）× 100
 /// 実装は公式サイトの説明通りの計算式とする
@@ -253,7 +253,8 @@ const getMaxPosition = async() => {
 const getEstrangementPercentage = () => {
     if (fxBTCJPY == -1 || spotBTCJPY == -1) return 0;
     let estrangementPercentage = (fxBTCJPY / spotBTCJPY - 1) * 100;
-    return estrangementPercentage;
+    let n = 2;
+    return Math.floor(estrangementPercentage * Math.pow(10, n)) / Math.pow(10, n);
 }
 
 ///
