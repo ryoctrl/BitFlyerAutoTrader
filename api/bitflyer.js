@@ -69,6 +69,14 @@ class BitFlyer {
         return await this.sendRequest(method, path, null, true);
     }
 
+    //完了した注文の詳細を取得
+    async getCompletedChildorders(id) {
+        let method = 'GET';
+	let path = '/v1/me/getchildorders?product_code=FX_BTC_JPY&child_order_state=COMPLETED';
+	if(id) path += `&child_order_acceptance_id=${id}`;
+	return await this.sendRequest(method, path, null, true);
+    }
+
     async getBTCBoard() {
         let method = 'GET';
         let path = '/v1/board?product_code=BTC_JPY';
