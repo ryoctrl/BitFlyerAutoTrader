@@ -139,7 +139,7 @@ const losscutIfNeeded = async() => {
 
     if (checkLosscut() && !losscutting) {
         losscutting = true;
-	losscut = true;
+        losscut = true;
         console.log(`【ロスカット】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
         if (currentPosition === 'LONG') {
             order.side = 'SELL';
@@ -155,15 +155,13 @@ const losscutIfNeeded = async() => {
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
-            positionExitProcess();
-
-            losscutting = false;
-
-
-            logMessage += `ロスカットを実行しました. 損失:${positionValuation}`;
-
+            logMessage += `ロスカットを実行しました.損失:${positionValuation}`;
             util.logging(LOGNAME, logMessage);
             console.log(childOrder);
+
+
+            positionExitProcess();
+            losscutting = false;
         } else {
             losscutting = false;
             console.log("何らかのエラーにより決済注文が通りませんでした");
@@ -178,7 +176,6 @@ const losscutIfNeeded = async() => {
 const checkLosscut = () => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return false;
 
-    //評価損益 が -1 * (証拠金 * (LOSSCUT_PERCENTAGE / 100)以下である場合
     return positionValuation <= -(currentCollateral * (LOSSCUT_PERCENTAGE / 100));
 };
 
@@ -189,8 +186,6 @@ const checkSecureProfit = () => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return false;
     return positionValuation >= currentCollateral * (PROFIT_PERCENTAGE / 100);
 };
-
-
 
 const takeProfitIfNeeded = async() => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
@@ -211,13 +206,12 @@ const takeProfitIfNeeded = async() => {
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
-	    logMessage += `利食いを実行しました. 利益:${positionValuation}`;
+            logMessage += `利食いを実行しました. 利益:${positionValuation}`;
+            util.logging(LOGNAME, logMessage);
+            console.log(childOrder);
 
             positionExitProcess();
             takeProfitting = false;
-
-            util.logging(LOGNAME, logMessage);
-            console.log(childOrder);
         } else {
             takeProfitting = false;
             console.log("何らかのエラーにより決済注文が通りませんでした");
@@ -288,11 +282,11 @@ const vixRSITrade = async() => {
     try {
         let ohlc = {};
         while (true) {
-            if(losscut && losscuttingCount >= 60) {
-		losscut = false;
-		losscutSignal = '';
-		losscuttingCount = 0;
-	    }
+            if (losscut && losscuttingCount >= 60) {
+                losscut = false;
+                losscutSignal = '';
+                losscuttingCount = 0;
+            }
             ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
             signal = Strategy.vixRsiSignal(ohlc, position);
             position = Strategy.getNextPosition(position, signal);
@@ -302,10 +296,10 @@ const vixRSITrade = async() => {
 
             if (signal === 'EXIT') {
                 if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
-		if (numPosition == 0) {
-			await sleepSec(interval * CANDLE_SIZE - 1);
-			continue;
-		}
+                if (numPosition == 0) {
+                    await sleepSec(interval * CANDLE_SIZE - 1);
+                    continue;
+                }
 
                 if (currentPosition === 'LONG') {
                     order.side = 'SELL';
@@ -375,7 +369,7 @@ const vixRSITrade = async() => {
                     } else {
                         let errorMessage = '何らかのエラーにより決済注文が通らなかったため1秒後に再注文します。\n';
                         if (childOrder.error_message) errorMessage += childOrder.error_message;
-			console.log(order);
+                        console.log(order);
                         util.logging(LOGNAME, errorMessage);
                         await sleepSec(1);
                     }
@@ -392,10 +386,10 @@ const vixRSITrade = async() => {
                     if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.93)) {
                         let tryOrderCount = 0;
                         while (true) {
-			    if(tryOrderCount && signal === 'BUY') {
-				sfd = getEstrangementPercentage();
-				if(sfd >= 4.93) continue;
-			    }
+                            if (tryOrderCount && signal === 'BUY') {
+                                sfd = getEstrangementPercentage();
+                                if (sfd >= 4.93) continue;
+                            }
                             if (signal === 'BUY' && bestAsk != -1) {
                                 order.child_order_type = 'LIMIT';
                                 order.price = bestAsk;
@@ -430,7 +424,7 @@ const vixRSITrade = async() => {
                             } else {
                                 let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
-				console.log(order);
+                                console.log(order);
                                 util.logging(LOGNAME, errorMessage);
                                 await sleepSec(1);
                             }
@@ -446,13 +440,13 @@ const vixRSITrade = async() => {
                         util.logging(LOGNAME, logMessage);
                     } else {
                         logMessage = `何らかの原因により注文をスルーしました。`;
-			console.log(order);
+                        console.log(order);
                         util.logging(LOGNAME, logMessage);
                     }
                 } else {
-		    if(numPosition >= maxPosition) logMessage = '建玉数が限度に達しているのでエントリーをスルーしました。';
-		    else logMessage = 'ロスカット中の為エントリーをスルーしました。';
-		    if(losscut) losscuttingCount++;
+                    if (numPosition >= maxPosition) logMessage = '建玉数が限度に達しているのでエントリーをスルーしました。';
+                    else logMessage = 'ロスカット中の為エントリーをスルーしました。';
+                    if (losscut) losscuttingCount++;
                     util.logging(LOGNAME, logMessage);
                 }
             }
