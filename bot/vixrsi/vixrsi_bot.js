@@ -383,10 +383,10 @@ const vixRSITrade = async() => {
                     order.size = ORDER_SIZE
 
                     let sfd = getEstrangementPercentage();
-                    if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.93)) {
+                    if (canEntry(signal, sfd)) {
                         let tryOrderCount = 0;
                         while (true) {
-                            if (tryOrderCount && signal === 'BUY') {
+                            if (tryOrderCount < 10 && signal === 'BUY') {
                                 sfd = getEstrangementPercentage();
                                 if (sfd >= 4.93) continue;
                             }
@@ -456,6 +456,15 @@ const vixRSITrade = async() => {
         console.log(error);
     }
 };
+
+const canEntry = (signal, sfd) => {
+    if (signal === 'BUY') {
+        return sfd < 4.93;
+    } else if (signal === 'SELL') {
+        return sfd < 4.93 || sfd > 5.0;
+    }
+    return false;
+}
 
 const waitContractOrderForFiveSec = async(id) => {
     let orders = null;
