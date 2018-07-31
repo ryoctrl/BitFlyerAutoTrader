@@ -422,6 +422,7 @@ const vixRSITrade = async() => {
                                 };
                                 bfAPI.cancelChildorder(cancelBody);
                             } else {
+                                tryOrderCount++;
                                 let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
                                 console.log(order);
