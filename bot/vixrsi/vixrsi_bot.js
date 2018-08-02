@@ -506,7 +506,9 @@ const execOrder = async(forceOrder) => {
                 product_code: 'FX_BTC_JPY',
                 child_order_acceptance_id: id
             };
-            bfAPI.cancelChildorder(cancelBody);
+            await bfAPI.cancelChildorder(cancelBody);
+            let posList = await bfAPI.getPositions();
+            if(posList.length && posList.length != numPosition) return true;
         } else {
             let errorMessage = '何らかエラーにより正常に注文ができませんでした。\n';
             if (childOrder.error_mssage) errorMessage += childOrder.error_message;
