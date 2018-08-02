@@ -297,7 +297,7 @@ const vixRSITrade = async() => {
             if (signal === 'EXIT') {
                 if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
                 if (numPosition == 0) {
-                    await sleepSec(interval * CANDLE_SIZE - 1);
+                    await util.sleepSec(interval * CANDLE_SIZE - 1);
                     continue;
                 }
 
@@ -319,7 +319,7 @@ const vixRSITrade = async() => {
                 while (true) {
                     if (getEstrangementPercentage() >= 4.95 && currentPosition === 'SHORT') {
                         trySFDContinueCount++;
-                        await sleepSec(1);
+                        await util.sleepSec(1);
                         if (trySFDContinueCount < 10) continue;
                     }
                     if (currentPosition === 'LONG') {
@@ -373,7 +373,7 @@ const vixRSITrade = async() => {
                         if (childOrder.error_message) errorMessage += childOrder.error_message;
                         console.log(order);
                         util.logging(LOGNAME, errorMessage);
-                        await sleepSec(1);
+                        await util.sleepSec(1);
                     }
                 }
             } else if (signal === 'BUY' || signal === 'SELL') {
@@ -432,7 +432,7 @@ const vixRSITrade = async() => {
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
                                 console.log(order);
                                 util.logging(LOGNAME, errorMessage);
-                                await sleepSec(1);
+                                await util.sleepSec(1);
                             }
 
                             if (tryOrderCount >= 5) {
@@ -456,7 +456,7 @@ const vixRSITrade = async() => {
                     util.logging(LOGNAME, logMessage);
                 }
             }
-            await sleepSec(interval * CANDLE_SIZE - 1);
+            await util.sleepSec(interval * CANDLE_SIZE - 1);
         }
     } catch (error) {
         console.log(error);
@@ -470,20 +470,79 @@ const canEntry = (signal, sfd) => {
         return sfd < 4.93 || sfd > 5.0;
     }
     return false;
-}
+};
+
+///
+/// 現在のorderの状態から注文を行う
+/// 指値注文後5秒間待ち約定しなければキャンセルし再注文。
+/// 5回再注文をしてダメな場合、forceOrderがtrueの場合は成行注文を行いtrueを、falseの場合はキャンセル後falseを返す。
+///
+const execOrder = async(forceOrder) => {
+    let tryOrderCount = 0;
+    let side = order.side;
+    while (true) {
+        //TODO: SFDのチェックをすること。
+
+        //価格設定
+        if (side === 'BUY') {
+            order.child_order_type = 'LIMIT';
+            order.price = bestAsk;
+        } else if (side === 'SELL') {
+            order.child_order_type = 'LIMIT';
+            order.price = bestBid;
+        } else return false;
+
+        //注文実行
+        let childOrder = bfAPI.sendChildorder(order);
+        tryOrderCount++;
+        if (childOrder.child_order_acceptance_id) {
+            let id = childOrder.child_order_acceptance_id;
+            let result = await waitContractOrderForFiveSec(id);
+            if (result) return true;
+
+            let errorMessage = '注文が5秒間約定しなかったため再注文します。';
+            util.logging(LOGNAME, errorMessage);
+            let cancelBody = {
+                product_code: 'FX_BTC_JPY',
+                child_order_acceptance_id: id
+            };
+            bfAPI.cancelChildorder(cancelBody);
+        } else {
+            let errorMessage = '何らかエラーにより正常に注文ができませんでした。\n';
+            if (childOrder.error_mssage) errorMessage += childOrder.error_message;
+            console.log(order);
+            util.logging(LOGNAME, errorMessage);
+            await util.sleepSec(5);
+        }
+
+        //TODO: forceOrderの処理を追加
+        if (tryOrderCount >= 5) {
+            //注文必須の場合は成行で注文
+            if (forceORder) {
+                order.child_order_type = 'MARKET';
+                order.price = 0;
+                let marketOrder = bfAPI.sendChildorder(order);
+                if (marketOrder.child_order_acceptance_id) {
+                    let id = marketOrder.child_order_acceptance_id;
+                    let result = await waitContractOrderForFiveSec(id);
+                    if (result) return true;
+                }
+            } else {
+                errorMessage = `5回以上注文が通らなかったため今回のエントリーをスルーします。`
+                util.logging(LOGNAME, errorMessage);
+                return false;
+            }
+        }
+    }
+};
 
 const waitContractOrderForFiveSec = async(id) => {
     let orders = null;
     for (let count = 0; count < 5; count++) {
         orders = await bfAPI.getChildorders(id);
         if (orders.length && orders[0].child_order_state === 'COMPLETED') return true;
-        await sleepSec(1);
+        await util.sleepSec(1);
     }
-}
-
-const sleepSec = async(seconds) => {
-    const interval = 1000 * seconds;
-    return new Promise(resolve => setTimeout(resolve, interval));
 };
 
 const vixRSIBot = () => {
