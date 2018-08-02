@@ -347,7 +347,9 @@ const vixRSITrade = async() => {
                             product_code: 'FX_BTC_JPY',
                             child_order_acceptance_id: id
                         };
-                        bfAPI.cancelChildorder(cancelBody);
+			await bfAPI.cancelChildorder(cancelBody);
+			let posList = await bfAPI.getPositions();
+			if(posList.length && posList.length != numPosition) break;
                         if (tryOrderCount >= 5) {
                             errorMessage = '5回以上注文が通らなかったため成行で決済します。';
                             util.logging(LOGNAME, errorMessage);
@@ -420,7 +422,10 @@ const vixRSITrade = async() => {
                                     product_code: 'FX_BTC_JPY',
                                     child_order_acceptance_id: id
                                 };
-                                bfAPI.cancelChildorder(cancelBody);
+                                await bfAPI.cancelChildorder(cancelBody);
+				let posList = await bfAPI.getPositions();
+				if(posList.length && posList.length != numPosition) break;
+				
                             } else {
                                 tryOrderCount++;
                                 let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
