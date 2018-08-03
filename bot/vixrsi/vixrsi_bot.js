@@ -4,7 +4,8 @@ const io = require('socket.io-client');
 //独自モジュール読み込み
 const workDir = process.cwd();
 const Strategy = require(workDir + '/bot/vixrsi/strategy');
-const CwUtil = require(workDir + '/cryptowatch/cwutil');
+//const CwUtil = require(workDir + '/cryptowatch/cwutil');
+const CwUtil = require(`${workDir}/api/chartUtil`);
 const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
 const SECRET = require(workDir + '/secret.json');
 const Util = require(`${workDir}/utilities/util`).Util;
@@ -47,6 +48,7 @@ socket.on(FX_TICKER_CHANNEL, message => {
 
 socket.on(FX_EXECUTIONS_CHANNEL, message => {
     fxBTCJPY = message[0].price;
+    updateOhlc(message[0].exec_date, message[0].price);
     calcPositionVlauation();
 });
 
@@ -267,7 +269,13 @@ const positionExitProcess = async() => {
     maxPosition = await getMaxPosition();
 }
 
+const updateOhlc = (execDate, price) => {
+	if(ohlc.length != PD + LB) return;
+	CwUtil.updateOhlc(execDate, price, ohlc);
+	
+};
 
+let ohlc = [];
 
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async() => {
@@ -275,19 +283,22 @@ const vixRSITrade = async() => {
     if (currentCollateral == -1) {
         currentCollateral = (await bfAPI.getCollateral()).collateral;
     }
+
+    //ohlcを初期化
+    console.log('OHLCデータを取得中...30秒程度時間がかかります。');
+    ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
+    console.log(`OHLCデータを取得しました. データ数:${ohlc.length}`);
     maxPosition = await getMaxPosition();
     logMessage = `最大建玉:${maxPosition}で開始します`;
     util.logging(LOGNAME, logMessage);
     //一定時間ごとにポジション移行の判断を行う
     try {
-        let ohlc = {};
         while (true) {
             if (losscut && losscuttingCount >= 60) {
                 losscut = false;
                 losscutSignal = '';
                 losscuttingCount = 0;
             }
-            ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
             signal = Strategy.vixRsiSignal(ohlc, position);
             position = Strategy.getNextPosition(position, signal);
 
