@@ -15,6 +15,8 @@ async function getOhlc(n, hist) {
     }
   };
   var response = await r2(url).json;
+	//TODO: node-fetch/libs/index.js:250のjsonで返される例外処理を行う
+	console.log(typeof(response));
   var candleStr = String(n_sec)
   // 最初と最後は不要なので捨てる
   return response['result'][candleStr].slice(1, -1);
