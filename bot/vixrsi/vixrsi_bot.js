@@ -427,16 +427,24 @@ const vixRSITrade = async() => {
                                     break;
                                 }
 
-                                let errorMessage = 'エントリー注文が5秒間約定しなかったため再注文します。';
-                                util.logging(LOGNAME, errorMessage);
                                 let cancelBody = {
                                     product_code: 'FX_BTC_JPY',
                                     child_order_acceptance_id: id
                                 };
                                 await bfAPI.cancelChildorder(cancelBody);
 				let posList = await bfAPI.getPositions();
-				if(posList.length && posList.length != numPosition) break;
-				
+				if(posList.length && posList.length != numPosition) {
+					positions.push(order.price);
+					numPosition++;
+					currentPosition = position;
+					whilePositioning = true;
+					positionExited = false;
+					 logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}, SFD:${sfd}`;
+                                    	util.logging(LOGNAME, logMessage);
+                                    	break;
+				}
+				let errorMessage = 'エントリー注文が5秒間約定しなかったため再注文します。';
+                                util.logging(LOGNAME, errorMessage);
                             } else {
                                 tryOrderCount++;
                                 let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
