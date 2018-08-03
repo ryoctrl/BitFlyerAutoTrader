@@ -98,6 +98,19 @@ class BitFlyer {
         return await this.sendPublicRequest(method, path, null);
     }
 
+    async getExecutions(product_code, count, before, after) {
+        let method = 'GET';
+        let path = '/v1/getexecutions';
+        
+        if(product_code) path += `?product_code=${product_code}`;
+        else path += '?product_code=FX_BTC_JPY';
+        if(count && count != 0) path += `&count=${count}`;
+        if(before && before != 0) path += `&before=${before}`;
+        if(after && after != 0) path += `&after=${after}`;
+
+        return await this.sendPublicRequest(method, path, null);
+    }
+
     async sendPublicRequest(method, path, body) {
         let url = URL + path;
         let res = await fetch(url);
