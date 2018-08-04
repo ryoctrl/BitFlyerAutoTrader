@@ -6,9 +6,16 @@
 ]
 */
 
+const workDir = process.cwd();
 const BitFlyer = require('./bitflyer').BitFlyer;
 const api = new BitFlyer(null, null);
+const Util = require(`${workDir}/utilities/util`).Util;
+const util = new Util();
+const LOGNAME = 'ChartUtil';
 
+///
+/// BitFlyerRESTAPIの約定履歴からn分足のチャートをhist本作成する
+///
 const getOhlc = async(n, hist) => {
 	//n = 1(分足), hist= 72(本分)
 	ohlcList = [];
@@ -49,6 +56,9 @@ const updateOhlc = (execDate, price, ohlcList) => {
 		ohlc[4] = price;
 		ohlcList.push(ohlc);	
 		ohlcList.shift();
+		let sec = ohlcList[ohlcList.length - 2];
+		let logMessage = `${sec[0]}, ${sec[1]}, ${sec[2]}, ${sec[3]}, ${sec[4]}`;
+		util.logging(LOGNAME, logMessage);
 	} else {
 		latestOhlc[2] = latestOhlc[2] > price ? latestOhlc[2] : price;
 		latestOhlc[3] = latestOhlc[3] < price ? latestOhlc[3] : price;
