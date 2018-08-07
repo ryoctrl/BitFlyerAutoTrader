@@ -352,13 +352,12 @@ const vixRSITrade = async() => {
                             break;
                         }
 
-                        let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
-                        util.logging(LOGNAME, errorMessage);
                         let cancelBody = {
                             product_code: 'FX_BTC_JPY',
                             child_order_acceptance_id: id
                         };
                         await bfAPI.cancelChildorder(cancelBody);
+			await util.sleepSec(1);
                         let posList = await bfAPI.getPositions();
                         if (posList.length && posList.length < numPosition) {
                             logMessage += `, 約定金額:${order.price}, id:${id}`;
@@ -366,6 +365,8 @@ const vixRSITrade = async() => {
                             util.logging(LOGNAME, logMessage);
                             break;
                         }
+			let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
+			util.logging(LOGNAME, errorMessage);
                         if (tryOrderCount >= 5) {
                             errorMessage = '5回以上注文が通らなかったため成行で決済します。';
                             util.logging(LOGNAME, errorMessage);
@@ -437,6 +438,7 @@ const vixRSITrade = async() => {
                                     child_order_acceptance_id: id
                                 };
                                 await bfAPI.cancelChildorder(cancelBody);
+				await util.sleepSec(1);
                                 let posList = await bfAPI.getPositions();
                                 if (posList.length && posList.length != numPosition) {
                                     positions.push(order.price);
