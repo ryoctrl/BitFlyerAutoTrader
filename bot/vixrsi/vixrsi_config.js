@@ -28,6 +28,6 @@ exports.trader = {
 	lossLimit: -100, // JPY (負の値)
 	shutdownFlag: true,
 	shutdownLimit: -1000, // JPY (負の値)
-	losscutPercentage: 3, 	//証拠金に対するロスカット発動基準となる評価損益の割合
-	profitPercentage: 3	//証拠金に対する利確発動基準となる評価損益の割合
+	losscutPercentage: 4, 	//証拠金に対するロスカット発動基準となる評価損益の割合
+	profitPercentage: 4	//証拠金に対する利確発動基準となる評価損益の割合
 }

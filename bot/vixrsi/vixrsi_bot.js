@@ -4,7 +4,8 @@ const io = require('socket.io-client');
 //独自モジュール読み込み
 const workDir = process.cwd();
 const Strategy = require(workDir + '/bot/vixrsi/strategy');
-const CwUtil = require(workDir + '/cryptowatch/cwutil');
+//const CwUtil = require(workDir + '/cryptowatch/cwutil');
+const CwUtil = require(`${workDir}/api/chartUtil`);
 const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
 const SECRET = require(workDir + '/secret.json');
 const Util = require(`${workDir}/utilities/util`).Util;
@@ -47,6 +48,7 @@ socket.on(FX_TICKER_CHANNEL, message => {
 
 socket.on(FX_EXECUTIONS_CHANNEL, message => {
     fxBTCJPY = message[0].price;
+    updateOhlc(message[0].exec_date, message[0].price);
     calcPositionVlauation();
 });
 
@@ -96,6 +98,8 @@ let takeProfitting = false;
 let losscutSignal = '';
 //ロスカット中のフラグ
 let losscutting = false;
+//ロスカット期間のカウンタ
+let losscuttingCount = 0;
 //ロギング用のメッセージ
 let logMessage = '';
 //注文用Object
@@ -137,7 +141,7 @@ const losscutIfNeeded = async() => {
 
     if (checkLosscut() && !losscutting) {
         losscutting = true;
-	losscut = true;
+        losscut = true;
         console.log(`【ロスカット】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
         if (currentPosition === 'LONG') {
             order.side = 'SELL';
@@ -153,15 +157,13 @@ const losscutIfNeeded = async() => {
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
-            positionExitProcess();
-
-            losscutting = false;
-
-
-            logMessage += `ロスカットを実行しました. 損失:${positionValuation}`;
-
+            logMessage += `ロスカットを実行しました.損失:${positionValuation}`;
             util.logging(LOGNAME, logMessage);
             console.log(childOrder);
+
+
+            positionExitProcess();
+            losscutting = false;
         } else {
             losscutting = false;
             console.log("何らかのエラーにより決済注文が通りませんでした");
@@ -176,7 +178,6 @@ const losscutIfNeeded = async() => {
 const checkLosscut = () => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return false;
 
-    //評価損益 が -1 * (証拠金 * (LOSSCUT_PERCENTAGE / 100)以下である場合
     return positionValuation <= -(currentCollateral * (LOSSCUT_PERCENTAGE / 100));
 };
 
@@ -187,8 +188,6 @@ const checkSecureProfit = () => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return false;
     return positionValuation >= currentCollateral * (PROFIT_PERCENTAGE / 100);
 };
-
-
 
 const takeProfitIfNeeded = async() => {
     if (numPosition == 0 || positionValuation == -1 || currentCollateral == -1) return;
@@ -209,13 +208,12 @@ const takeProfitIfNeeded = async() => {
         let childOrder = await bfAPI.sendChildorder(order);
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
-	    logMessage += `利食いを実行しました. 利益:${positionValuation}`;
+            logMessage += `利食いを実行しました. 利益:${positionValuation}`;
+            util.logging(LOGNAME, logMessage);
+            console.log(childOrder);
 
             positionExitProcess();
             takeProfitting = false;
-
-            util.logging(LOGNAME, logMessage);
-            console.log(childOrder);
         } else {
             takeProfitting = false;
             console.log("何らかのエラーにより決済注文が通りませんでした");
@@ -243,7 +241,7 @@ const getMaxPosition = async() => {
 };
 
 ///
-/// 現在の現物とFXとの価格乖離(%)を取得する
+/// 現在の現物とFXとの価格乖離(%)を少数第二位まで取得する
 /// どちらかの最終取引価格が未受信であれば0を返す
 /// 価格乖離 (%) = （Lightning FX 取引価格 ÷ Lightning 現物 （BTC/JPY）最終取引価格 − 1）× 100
 /// 実装は公式サイトの説明通りの計算式とする
@@ -251,7 +249,8 @@ const getMaxPosition = async() => {
 const getEstrangementPercentage = () => {
     if (fxBTCJPY == -1 || spotBTCJPY == -1) return 0;
     let estrangementPercentage = (fxBTCJPY / spotBTCJPY - 1) * 100;
-    return estrangementPercentage;
+    let n = 2;
+    return Math.floor(estrangementPercentage * Math.pow(10, n)) / Math.pow(10, n);
 }
 
 ///
@@ -270,7 +269,13 @@ const positionExitProcess = async() => {
     maxPosition = await getMaxPosition();
 }
 
+const updateOhlc = (execDate, price) => {
+    if (ohlc.length != PD + LB) return;
+    CwUtil.updateOhlc(execDate, price, ohlc);
 
+};
+
+let ohlc = [];
 
 // 変更点: メインの処理を関数に切り出し
 const vixRSITrade = async() => {
@@ -278,14 +283,22 @@ const vixRSITrade = async() => {
     if (currentCollateral == -1) {
         currentCollateral = (await bfAPI.getCollateral()).collateral;
     }
+
+    //ohlcを初期化
+    console.log('OHLCデータを取得中...30秒程度時間がかかります。');
+    ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
+    console.log(`OHLCデータを取得しました. データ数:${ohlc.length}`);
     maxPosition = await getMaxPosition();
     logMessage = `最大建玉:${maxPosition}で開始します`;
     util.logging(LOGNAME, logMessage);
     //一定時間ごとにポジション移行の判断を行う
     try {
-        let ohlc = {};
         while (true) {
-            ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
+            if (losscut && losscuttingCount >= 60) {
+                losscut = false;
+                losscutSignal = '';
+                losscuttingCount = 0;
+            }
             signal = Strategy.vixRsiSignal(ohlc, position);
             position = Strategy.getNextPosition(position, signal);
 
@@ -294,10 +307,10 @@ const vixRSITrade = async() => {
 
             if (signal === 'EXIT') {
                 if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
-		if (numPosition == 0) {
-			await sleepSec(interval * CANDLE_SIZE - 1);
-			continue;
-		}
+                if (numPosition == 0) {
+                    await util.sleepSec(interval * CANDLE_SIZE - 1);
+                    continue;
+                }
 
                 if (currentPosition === 'LONG') {
                     order.side = 'SELL';
@@ -315,9 +328,9 @@ const vixRSITrade = async() => {
                 logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${order.size}BTC`;
 
                 while (true) {
-                    if (getEstrangementPercentage() >= 4.95) {
+                    if (getEstrangementPercentage() >= 4.95 && currentPosition === 'SHORT') {
                         trySFDContinueCount++;
-                        await sleepSec(1);
+                        await util.sleepSec(1);
                         if (trySFDContinueCount < 10) continue;
                     }
                     if (currentPosition === 'LONG') {
@@ -339,13 +352,21 @@ const vixRSITrade = async() => {
                             break;
                         }
 
-                        let errorMessage = '注文が5秒間約定しなかったためキャンセルします。';
-                        util.logging(LOGNAME, errorMessage);
                         let cancelBody = {
                             product_code: 'FX_BTC_JPY',
                             child_order_acceptance_id: id
                         };
-                        bfAPI.cancelChildorder(cancelBody);
+                        await bfAPI.cancelChildorder(cancelBody);
+			await util.sleepSec(1);
+                        let posList = await bfAPI.getPositions();
+                        if (posList.length && posList.length < numPosition) {
+                            logMessage += `, 約定金額:${order.price}, id:${id}`;
+                            positionExitProcess();
+                            util.logging(LOGNAME, logMessage);
+                            break;
+                        }
+			let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
+			util.logging(LOGNAME, errorMessage);
                         if (tryOrderCount >= 5) {
                             errorMessage = '5回以上注文が通らなかったため成行で決済します。';
                             util.logging(LOGNAME, errorMessage);
@@ -367,9 +388,9 @@ const vixRSITrade = async() => {
                     } else {
                         let errorMessage = '何らかのエラーにより決済注文が通らなかったため1秒後に再注文します。\n';
                         if (childOrder.error_message) errorMessage += childOrder.error_message;
-			console.log(order);
+                        console.log(order);
                         util.logging(LOGNAME, errorMessage);
-                        await sleepSec(1);
+                        await util.sleepSec(1);
                     }
                 }
             } else if (signal === 'BUY' || signal === 'SELL') {
@@ -381,9 +402,13 @@ const vixRSITrade = async() => {
                     order.size = ORDER_SIZE
 
                     let sfd = getEstrangementPercentage();
-                    if (signal === 'SELL' || (signal === 'BUY' && sfd < 4.93)) {
+                    if (canEntry(signal, sfd)) {
                         let tryOrderCount = 0;
                         while (true) {
+                            if (tryOrderCount < 10 && signal === 'BUY') {
+                                sfd = getEstrangementPercentage();
+                                if (sfd >= 4.93) continue;
+                            }
                             if (signal === 'BUY' && bestAsk != -1) {
                                 order.child_order_type = 'LIMIT';
                                 order.price = bestAsk;
@@ -403,28 +428,41 @@ const vixRSITrade = async() => {
                                     currentPosition = position;
                                     whilePositioning = true;
                                     positionExited = false;
-                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}`;
+                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}, SFD:${sfd}`;
                                     util.logging(LOGNAME, logMessage);
                                     break;
                                 }
 
-                                let errorMessage = '注文が5秒間約定しなかったためキャンセルします。';
-                                util.logging(LOGNAME, errorMessage);
                                 let cancelBody = {
                                     product_code: 'FX_BTC_JPY',
                                     child_order_acceptance_id: id
                                 };
-                                bfAPI.cancelChildorder(cancelBody);
-                            } else {
-                                let errorMessage = '何らかエラーにより正常に発注できませんでした。\n';
-                                if (childOrder.error_mssage) errorMessage += childOrder.error_message;
-				console.log(order);
+                                await bfAPI.cancelChildorder(cancelBody);
+				await util.sleepSec(1);
+                                let posList = await bfAPI.getPositions();
+                                if (posList.length && posList.length != numPosition) {
+                                    positions.push(order.price);
+                                    numPosition++;
+                                    currentPosition = position;
+                                    whilePositioning = true;
+                                    positionExited = false;
+                                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}, SFD:${sfd}`;
+                                    util.logging(LOGNAME, logMessage);
+                                    break;
+                                }
+                                let errorMessage = 'エントリー注文が5秒間約定しなかったため再注文します。';
                                 util.logging(LOGNAME, errorMessage);
-                                await sleepSec(1);
+                            } else {
+                                tryOrderCount++;
+                                let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
+                                if (childOrder.error_mssage) errorMessage += childOrder.error_message;
+                                console.log(order);
+                                util.logging(LOGNAME, errorMessage);
+                                await util.sleepSec(1);
                             }
 
                             if (tryOrderCount >= 5) {
-                                errorMessage = `5回以上注文が通らなかったため今回の注文をスルーします。`
+                                errorMessage = `5回以上注文が通らなかったため今回のエントリーをスルーします。`
                                 util.logging(LOGNAME, errorMessage);
                                 break;
                             }
@@ -434,18 +472,95 @@ const vixRSITrade = async() => {
                         util.logging(LOGNAME, logMessage);
                     } else {
                         logMessage = `何らかの原因により注文をスルーしました。`;
-			console.log(order);
+                        console.log(order);
                         util.logging(LOGNAME, logMessage);
                     }
                 } else {
-                    logMessage = `ロスカット中または建玉数が限度に達しているのでエントリーをスルーしました。`;
+                    if (numPosition >= maxPosition) logMessage = '建玉数が限度に達しているのでエントリーをスルーしました。';
+                    else logMessage = 'ロスカット中の為エントリーをスルーしました。';
+                    if (losscut) losscuttingCount++;
                     util.logging(LOGNAME, logMessage);
                 }
             }
-            await sleepSec(interval * CANDLE_SIZE - 1);
+            await util.sleepSec(interval * CANDLE_SIZE - 1);
         }
     } catch (error) {
         console.log(error);
+    }
+};
+
+const canEntry = (signal, sfd) => {
+    if (signal === 'BUY') {
+        return sfd < 4.93;
+    } else if (signal === 'SELL') {
+        return sfd < 4.93 || sfd > 5.0;
+    }
+    return false;
+};
+
+///
+/// 現在のorderの状態から注文を行う
+/// 指値注文後5秒間待ち約定しなければキャンセルし再注文。
+/// 5回再注文をしてダメな場合、forceOrderがtrueの場合は成行注文を行いtrueを、falseの場合はキャンセル後falseを返す。
+///
+const execOrder = async(forceOrder) => {
+    let tryOrderCount = 0;
+    let side = order.side;
+    while (true) {
+        //TODO: SFDのチェックをすること。
+
+        //価格設定
+        if (side === 'BUY') {
+            order.child_order_type = 'LIMIT';
+            order.price = bestAsk;
+        } else if (side === 'SELL') {
+            order.child_order_type = 'LIMIT';
+            order.price = bestBid;
+        } else return false;
+
+        //注文実行
+        let childOrder = bfAPI.sendChildorder(order);
+        tryOrderCount++;
+        if (childOrder.child_order_acceptance_id) {
+            let id = childOrder.child_order_acceptance_id;
+            let result = await waitContractOrderForFiveSec(id);
+            if (result) return true;
+
+            let errorMessage = '注文が5秒間約定しなかったため再注文します。';
+            util.logging(LOGNAME, errorMessage);
+            let cancelBody = {
+                product_code: 'FX_BTC_JPY',
+                child_order_acceptance_id: id
+            };
+            await bfAPI.cancelChildorder(cancelBody);
+            let posList = await bfAPI.getPositions();
+            if (posList.length && posList.length != numPosition) return true;
+        } else {
+            let errorMessage = '何らかエラーにより正常に注文ができませんでした。\n';
+            if (childOrder.error_mssage) errorMessage += childOrder.error_message;
+            console.log(order);
+            util.logging(LOGNAME, errorMessage);
+            await util.sleepSec(5);
+        }
+
+        //TODO: forceOrderの処理を追加
+        if (tryOrderCount >= 5) {
+            //注文必須の場合は成行で注文
+            if (forceORder) {
+                order.child_order_type = 'MARKET';
+                order.price = 0;
+                let marketOrder = bfAPI.sendChildorder(order);
+                if (marketOrder.child_order_acceptance_id) {
+                    let id = marketOrder.child_order_acceptance_id;
+                    let result = await waitContractOrderForFiveSec(id);
+                    if (result) return true;
+                }
+            } else {
+                errorMessage = `5回以上注文が通らなかったため今回のエントリーをスルーします。`
+                util.logging(LOGNAME, errorMessage);
+                return false;
+            }
+        }
     }
 };
 
@@ -454,13 +569,8 @@ const waitContractOrderForFiveSec = async(id) => {
     for (let count = 0; count < 5; count++) {
         orders = await bfAPI.getChildorders(id);
         if (orders.length && orders[0].child_order_state === 'COMPLETED') return true;
-        await sleepSec(1);
+        await util.sleepSec(1);
     }
-}
-
-const sleepSec = async(seconds) => {
-    const interval = 1000 * seconds;
-    return new Promise(resolve => setTimeout(resolve, interval));
 };
 
 const vixRSIBot = () => {
