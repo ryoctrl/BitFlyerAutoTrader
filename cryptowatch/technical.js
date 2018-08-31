@@ -30,9 +30,22 @@ const sma = (ohlcDatas, length) => {
 //@return EMA配列
 const ema = (ohlcDatas, length) => {
 	if(!ohlcDatas.length || ohlcDatas.length < length + 1) return;
+	ohlcDatas.reverse();
 	let ema = [];
-
-
+	let slc = [];
+	let val = 0;
+	const alpha = 2 / (length + 1);
+	for(let i = 0; i < ohlcDatas.length - length + 1; i++) {
+		if(ema.length == 0) {
+			val = sum(ohlcDatas.slice(i, i + length)) / length;
+			ema.push(val);
+		} else {
+			slc = ohlcDatas.slice(i, i + length);
+			val = ema[0] + alpha * (slc[slc.length - 1] - ema[0]);
+			ema.unshift(val);
+		}
+	}
+	return ema;
 };
 
 //TODO: 配列先頭から時間順になるように考慮し直す
