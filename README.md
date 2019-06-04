@@ -4,26 +4,17 @@ BitFlyerにて自動取引を行うbotです。
 
 # 動かし方
 Node.jsが動作する環境が必要です。
-
-使用前に、このREADME.mdが存在するディレクトリ(フォルダ)に"secret.json"というファイルを作成しAPI_KEY, API_SECRETを記述する必要があります。
-
-jsonファイルには以下のように記述してください。
-	
-	{
-		"API_KEY": "コピーしたAPIKEY",
-		"API_SECRET": "コピーしたAPISECRET"
-	}	
-
 Linuxサーバーで常設プログラムとして動かすことを想定しています.
 
 bot/vixrsi/vixrsi_bot.jsをnodeで起動することで稼働し始めます.
 
-なお、直接起動するのではなく,プロセスマネージャの"PM2"をインストールしpm2config.ymlを読み込んで使用してください.
 	
-	$ cd bfbot
+	$ cd BitFlyerAutoTrader
 	$ npm install //初回起動時のみ
-	$ pm2 start pm2config.yml //初回起動時のみ
-	$ pm2 start autotrader //2回目以降の起動時
+    $ cp ecosystem.config.js.sample ecosystem.config.js
+    $ vi ecosystem.config.js //API_KEYとAPI_SECRETを変更
+	$ pm2 start ecosystem.config.js //初回起動時のみ
+	$ pm2 start bfat //2回目以降の起動時
 	
 # ストラテジ
 [tona-bitflyer-bot](https://note.mu/tonacoin)を参考にVIX戦術で動作しています。
