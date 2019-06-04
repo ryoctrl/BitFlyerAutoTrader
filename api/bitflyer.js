@@ -1,7 +1,6 @@
 const r2 = require('r2');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
-const Secret = require('../secret.json');
 
 const URL = 'https://api.bitflyer.jp';
 

@@ -7,11 +7,10 @@ const Strategy = require(workDir + '/bot/vixrsi/strategy');
 //const CwUtil = require(workDir + '/cryptowatch/cwutil');
 const CwUtil = require(`${workDir}/api/chartUtil`);
 const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
-const SECRET = require(workDir + '/secret.json');
 const Util = require(`${workDir}/utilities/util`).Util;
 const BitFlyer = require(workDir + '/api/bitflyer').BitFlyer;
 const util = new Util();
-const bfAPI = new BitFlyer(SECRET.API_KEY, SECRET.API_SECRET);
+const bfAPI = new BitFlyer(process.env.API_KEY, process.env.API_SECRET);
 
 //TODO: configのjsonを整理
 const CANDLE_SIZE = VIXConfig.trader.candleSize;
