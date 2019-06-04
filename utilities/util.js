@@ -9,7 +9,9 @@ class Util {
 
     logging(name, message) {
         console.log(message);
-        let logDir = `logs/${name}/`;
+        let logDir = 'logs/';
+        if(!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+        logDir += `${name}/`;
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
         let logfileName = `${moment(Date.now()).format('YYYYMMDD')}.log`;
         if (!message.endsWith('\n')) message += '\n';
