@@ -7,6 +7,8 @@ module.exports = {
       env: {
           API_KEY: 'your bitflyer api key',
           API_SECRET: 'your bitflyer api secret',
+          BASE_LOG_DIR: 'logs/',
+          LOG_FORMAT: 'YYYY/MM/DD HH:mm:ss'
       },
       'log-date-format': 'YYYY-MM-DD HH:mm:ss Z'
     },

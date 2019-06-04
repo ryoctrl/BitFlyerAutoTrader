@@ -7,9 +7,8 @@ const Strategy = require(workDir + '/bot/vixrsi/strategy');
 //const CwUtil = require(workDir + '/cryptowatch/cwutil');
 const CwUtil = require(`${workDir}/api/chartUtil`);
 const VIXConfig = require(workDir + '/bot/vixrsi/vixrsi_config');
-const Util = require(`${workDir}/utilities/util`).Util;
+const util = require(`${workDir}/util`);
 const BitFlyer = require(workDir + '/api/bitflyer').BitFlyer;
-const util = new Util();
 const bfAPI = new BitFlyer(process.env.API_KEY, process.env.API_SECRET);
 
 //TODO: configのjsonを整理
@@ -39,7 +38,7 @@ socket.on("connect", () => {
 //Tickerの受信
 socket.on(FX_TICKER_CHANNEL, message => {
     if (bestBid == -1 || bestAsk == -1) {
-        console.log(`BestBidSetTo: ${message.best_bid}, BestAskSetTo: ${message.best_ask}`);
+        util.log(`BestBidSetTo: ${message.best_bid}, BestAskSetTo: ${message.best_ask}`);
     }
     bestBid = message.best_bid;
     bestAsk = message.best_ask;
@@ -141,7 +140,7 @@ const losscutIfNeeded = async() => {
     if (checkLosscut() && !losscutting) {
         losscutting = true;
         losscut = true;
-        console.log(`【ロスカット】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
+        util.log(`【ロスカット】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${-(currentCollateral * (LOSSCUT_PERCENTAGE / 100))}`);
         if (currentPosition === 'LONG') {
             order.side = 'SELL';
             losscutSignal = 'BUY';
@@ -157,16 +156,16 @@ const losscutIfNeeded = async() => {
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
             logMessage += `ロスカットを実行しました.損失:${positionValuation}`;
-            util.logging(LOGNAME, logMessage);
-            console.log(childOrder);
+            util.log(logMessage);
+            util.log(childOrder);
 
 
             positionExitProcess();
             losscutting = false;
         } else {
             losscutting = false;
-            console.log("何らかのエラーにより決済注文が通りませんでした");
-            console.log(childOrder);
+            util.log("何らかのエラーにより決済注文が通りませんでした");
+            util.log(childOrder);
         }
     }
 }
@@ -194,7 +193,7 @@ const takeProfitIfNeeded = async() => {
     if (checkSecureProfit() && !takeProfitting) {
         takeProfitting = true;
 
-        console.log(`【利食い】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${currentCollateral * (LOSSCUT_PERCENTAGE / 100)}`);
+        util.log(`【利食い】, 評価損益:${positionValuation}, 証拠金:${currentCollateral}, 基準値: ${currentCollateral * (LOSSCUT_PERCENTAGE / 100)}`);
         if (currentPosition === 'LONG') {
             order.side = 'SELL';
         } else if (currentPosition === 'SHORT') {
@@ -208,15 +207,15 @@ const takeProfitIfNeeded = async() => {
         if (childOrder.child_order_acceptance_id) {
             logMessage += `ポジション:${position}, 取引枚数:${order.size}BTC\n`;
             logMessage += `利食いを実行しました. 利益:${positionValuation}`;
-            util.logging(LOGNAME, logMessage);
-            console.log(childOrder);
+            util.log(logMessage);
+            util.log(childOrder);
 
             positionExitProcess();
             takeProfitting = false;
         } else {
             takeProfitting = false;
-            console.log("何らかのエラーにより決済注文が通りませんでした");
-            console.log(childOrder);
+            util.log("何らかのエラーにより決済注文が通りませんでした");
+            util.log(childOrder);
         }
     }
 }
@@ -229,13 +228,13 @@ const takeProfitIfNeeded = async() => {
 const getMaxPosition = async() => {
     currentCollateral = (await bfAPI.getCollateral()).collateral;
 
-    console.log(`証拠金:${currentCollateral}円`);
+    util.log(`証拠金:${currentCollateral}円`);
     if (fxBTCJPY == -1) {
         fxBTCJPY = (await bfAPI.getFXBoard()).mid_price;
     }
     let unitPrice = fxBTCJPY * ORDER_SIZE / LEVERAGE;
     let result = Math.floor(currentCollateral / unitPrice);
-    console.log(`最大建玉数:${result}`);
+    util.log(`最大建玉数:${result}`);
     return result;
 };
 
@@ -284,12 +283,12 @@ const vixRSITrade = async() => {
     }
 
     //ohlcを初期化
-    console.log('OHLCデータを取得中...30秒程度時間がかかります。');
+    util.log('OHLCデータを取得中...30秒程度時間がかかります。');
     ohlc = await CwUtil.getOhlc(CANDLE_SIZE, PD + LB);
-    console.log(`OHLCデータを取得しました. データ数:${ohlc.length}`);
+    util.log(`OHLCデータを取得しました. データ数:${ohlc.length}`);
     maxPosition = await getMaxPosition();
     logMessage = `最大建玉:${maxPosition}で開始します`;
-    util.logging(LOGNAME, logMessage);
+    util.log(logMessage);
     //一定時間ごとにポジション移行の判断を行う
     try {
         while (true) {
@@ -301,13 +300,13 @@ const vixRSITrade = async() => {
             signal = Strategy.vixRsiSignal(ohlc, position);
             position = Strategy.getNextPosition(position, signal);
 
-            logMessage = `${moment(Date.now()).format('YYYY/MM/DD HH:mm:ss')} - ${signal},${position}`;
-            util.logging(LOGNAME, logMessage);
+            logMessage = `${signal},${position}`;
+            util.log(logMessage);
 
             if (signal === 'EXIT') {
                 if (positionExited || (!losscut && !secureProfit) && (currentPosition === 'NONE' || currentPosition === 'HOLD')) continue;
                 if (numPosition == 0) {
-                    await util.sleepSec(interval * CANDLE_SIZE - 1);
+                    await util.sleep((interval * CANDLE_SIZE - 1) * 1000);
                     continue;
                 }
 
@@ -329,7 +328,7 @@ const vixRSITrade = async() => {
                 while (true) {
                     if (getEstrangementPercentage() >= 4.95 && currentPosition === 'SHORT') {
                         trySFDContinueCount++;
-                        await util.sleepSec(1);
+                        await util.sleep(1000);
                         if (trySFDContinueCount < 10) continue;
                     }
                     if (currentPosition === 'LONG') {
@@ -347,7 +346,7 @@ const vixRSITrade = async() => {
                         if (result) {
                             logMessage += `, 約定金額:${order.price}, id:${id}`;
                             positionExitProcess();
-                            util.logging(LOGNAME, logMessage);
+                            util.log(logMessage);
                             break;
                         }
 
@@ -356,19 +355,19 @@ const vixRSITrade = async() => {
                             child_order_acceptance_id: id
                         };
                         await bfAPI.cancelChildorder(cancelBody);
-			await util.sleepSec(1);
+			await util.sleep(1000);
                         let posList = await bfAPI.getPositions();
                         if (posList.length && posList.length < numPosition) {
                             logMessage += `, 約定金額:${order.price}, id:${id}`;
                             positionExitProcess();
-                            util.logging(LOGNAME, logMessage);
+                            util.log(logMessage);
                             break;
                         }
 			let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
-			util.logging(LOGNAME, errorMessage);
+                        util.log(errorMessage);
                         if (tryOrderCount >= 5) {
                             errorMessage = '5回以上注文が通らなかったため成行で決済します。';
-                            util.logging(LOGNAME, errorMessage);
+                            util.log(errorMessage);
 
                             order.child_order_type = 'MARKET';
                             order.price = 0;
@@ -380,16 +379,16 @@ const vixRSITrade = async() => {
 
                                 positionExitProcess();
 
-                                util.logging(LOGNAME, logMessage);
+                                util.log(logMessage);
                                 break;
                             }
                         }
                     } else {
                         let errorMessage = '何らかのエラーにより決済注文が通らなかったため1秒後に再注文します。\n';
                         if (childOrder.error_message) errorMessage += childOrder.error_message;
-                        console.log(order);
-                        util.logging(LOGNAME, errorMessage);
-                        await util.sleepSec(1);
+                        util.log(order);
+                        util.log(errorMessage);
+                        await util.sleep(1000);
                     }
                 }
             } else if (signal === 'BUY' || signal === 'SELL') {
@@ -428,7 +427,7 @@ const vixRSITrade = async() => {
                                     whilePositioning = true;
                                     positionExited = false;
                                     logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}, SFD:${sfd}`;
-                                    util.logging(LOGNAME, logMessage);
+                                    util.log(logMessage);
                                     break;
                                 }
 
@@ -437,7 +436,7 @@ const vixRSITrade = async() => {
                                     child_order_acceptance_id: id
                                 };
                                 await bfAPI.cancelChildorder(cancelBody);
-				await util.sleepSec(1);
+				await util.sleep(1000);
                                 let posList = await bfAPI.getPositions();
                                 if (posList.length && posList.length != numPosition) {
                                     positions.push(order.price);
@@ -446,45 +445,45 @@ const vixRSITrade = async() => {
                                     whilePositioning = true;
                                     positionExited = false;
                                     logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${order.size}BTC, 約定価格:${order.price}, id:${id}, SFD:${sfd}`;
-                                    util.logging(LOGNAME, logMessage);
+                                    util.log(logMessage);
                                     break;
                                 }
                                 let errorMessage = 'エントリー注文が5秒間約定しなかったため再注文します。';
-                                util.logging(LOGNAME, errorMessage);
+                                util.log(errorMessage);
                             } else {
                                 tryOrderCount++;
                                 let errorMessage = '何らかエラーにより正常にエントリーできませんでした。\n';
                                 if (childOrder.error_mssage) errorMessage += childOrder.error_message;
-                                console.log(order);
-                                util.logging(LOGNAME, errorMessage);
-                                await util.sleepSec(1);
+                                util.log(order);
+                                util.log(errorMessage);
+                                await util.sleep(1000);
                             }
 
                             if (tryOrderCount >= 5) {
                                 errorMessage = `5回以上注文が通らなかったため今回のエントリーをスルーします。`
-                                util.logging(LOGNAME, errorMessage);
+                                util.log(errorMessage);
                                 break;
                             }
                         }
                     } else if (signal === 'BUY' && sfd >= 4.9) {
                         logMessage = `乖離率が${sfd}%でSFDを徴収される可能性があるためエントリーをスルーしました。`;
-                        util.logging(LOGNAME, logMessage);
+                        util.log(logMessage);
                     } else {
                         logMessage = `何らかの原因により注文をスルーしました。`;
-                        console.log(order);
-                        util.logging(LOGNAME, logMessage);
+                        util.log(order);
+                        util.log(logMessage);
                     }
                 } else {
                     if (numPosition >= maxPosition) logMessage = '建玉数が限度に達しているのでエントリーをスルーしました。';
                     else logMessage = 'ロスカット中の為エントリーをスルーしました。';
                     if (losscut) losscuttingCount++;
-                    util.logging(LOGNAME, logMessage);
+                    util.log(logMessage);
                 }
             }
-            await util.sleepSec(interval * CANDLE_SIZE - 1);
+            await util.sleep((interval * CANDLE_SIZE - 1) * 1000);
         }
     } catch (error) {
-        console.log(error);
+        util.log(error);
     }
 };
 
@@ -526,7 +525,7 @@ const execOrder = async(forceOrder) => {
             if (result) return true;
 
             let errorMessage = '注文が5秒間約定しなかったため再注文します。';
-            util.logging(LOGNAME, errorMessage);
+            util.log(errorMessage);
             let cancelBody = {
                 product_code: 'FX_BTC_JPY',
                 child_order_acceptance_id: id
@@ -537,9 +536,9 @@ const execOrder = async(forceOrder) => {
         } else {
             let errorMessage = '何らかエラーにより正常に注文ができませんでした。\n';
             if (childOrder.error_mssage) errorMessage += childOrder.error_message;
-            console.log(order);
-            util.logging(LOGNAME, errorMessage);
-            await util.sleepSec(5);
+            util.log(order);
+            util.log(errorMessage);
+            await util.sleep(5000);
         }
 
         //TODO: forceOrderの処理を追加
@@ -556,7 +555,7 @@ const execOrder = async(forceOrder) => {
                 }
             } else {
                 errorMessage = `5回以上注文が通らなかったため今回のエントリーをスルーします。`
-                util.logging(LOGNAME, errorMessage);
+                util.log(errorMessage);
                 return false;
             }
         }
@@ -568,12 +567,12 @@ const waitContractOrderForFiveSec = async(id) => {
     for (let count = 0; count < 5; count++) {
         orders = await bfAPI.getChildorders(id);
         if (orders.length && orders[0].child_order_state === 'COMPLETED') return true;
-        await util.sleepSec(1);
+        await util.sleep(1000);
     }
 };
 
 const vixRSIBot = () => {
-    console.log('[稼働開始]');
+    util.log('[稼働開始]');
     vixRSITrade();
 };
 

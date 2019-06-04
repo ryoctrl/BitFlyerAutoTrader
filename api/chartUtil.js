@@ -9,8 +9,7 @@
 const workDir = process.cwd();
 const BitFlyer = require('./bitflyer').BitFlyer;
 const api = new BitFlyer(null, null);
-const Util = require(`${workDir}/utilities/util`).Util;
-const util = new Util();
+const util = require('../util');
 const LOGNAME = 'ChartUtil';
 
 ///
@@ -58,7 +57,7 @@ const updateOhlc = (execDate, price, ohlcList) => {
 		ohlcList.shift();
 		let sec = ohlcList[ohlcList.length - 2];
 		let logMessage = `${sec[0]}, ${sec[1]}, ${sec[2]}, ${sec[3]}, ${sec[4]}`;
-		util.logging(LOGNAME, logMessage);
+        util.log(logMessage);
 	} else {
 		latestOhlc[2] = latestOhlc[2] > price ? latestOhlc[2] : price;
 		latestOhlc[3] = latestOhlc[3] < price ? latestOhlc[3] : price;
