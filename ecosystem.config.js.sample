@@ -1,0 +1,14 @@
+module.exports = {
+  apps : [
+    {
+      name      : 'bfat',
+      script    : 'node',
+      args      : './bot/vixrsi/vixrsi_bot.js',
+      env: {
+          API_KEY: 'your bitflyer api key',
+          API_SECRET: 'your bitflyer api secret',
+      },
+      'log-date-format': 'YYYY-MM-DD HH:mm:ss Z'
+    },
+  ],
+};
