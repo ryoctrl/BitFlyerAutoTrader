@@ -355,7 +355,7 @@ const vixRSITrade = async() => {
                             child_order_acceptance_id: id
                         };
                         await bfAPI.cancelChildorder(cancelBody);
-			await util.sleep(1000);
+                        await util.sleep(1000);
                         let posList = await bfAPI.getPositions();
                         if (posList.length && posList.length < numPosition) {
                             logMessage += `, 約定金額:${order.price}, id:${id}`;
@@ -363,7 +363,7 @@ const vixRSITrade = async() => {
                             util.log(logMessage);
                             break;
                         }
-			let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
+                        let errorMessage = '決済注文が5秒間約定しなかったためキャンセルします。';
                         util.log(errorMessage);
                         if (tryOrderCount >= 5) {
                             errorMessage = '5回以上注文が通らなかったため成行で決済します。';
@@ -436,7 +436,7 @@ const vixRSITrade = async() => {
                                     child_order_acceptance_id: id
                                 };
                                 await bfAPI.cancelChildorder(cancelBody);
-				await util.sleep(1000);
+                                await util.sleep(1000);
                                 let posList = await bfAPI.getPositions();
                                 if (posList.length && posList.length != numPosition) {
                                     positions.push(order.price);
