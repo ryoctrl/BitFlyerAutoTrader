@@ -1,3 +1,4 @@
+'use strict';
 const moment = require('moment');
 const io = require('socket.io-client');
 
