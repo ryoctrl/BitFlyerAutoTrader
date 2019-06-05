@@ -14,7 +14,14 @@ const getCurrentLogFileName = () => {
 }
 
 const log = (message, callback) => {
-    let logMessage = typeof(message) === 'object' ? JSON.stringify(message) : message;
+    let logMessage;
+    if(message instanceof Error) {
+        logMessage = message;
+    } else if(typeof(message) === 'object') {
+        logMessage = JSON.stringify(message);
+    } else {
+        logMessage = message;
+    }
     logMessage = `${getDate()} - ${logMessage}`
     console.log(logMessage);
     logMessage = logMessage.endsWith('\n') ? logMessage : logMessage + '\n';
