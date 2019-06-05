@@ -1,6 +1,7 @@
 const r2 = require('r2');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
+const querystring = require('querystring');
 
 const URL = 'https://api.bitflyer.jp';
 
@@ -114,7 +115,7 @@ class BitFlyer {
     /* Strategy用の約定履歴API */
     async getExec(idObj) {
         const method = 'GET';
-        const path = '/me/getexecutions?' + querystring.stringify(idObj);
+        const path = '/v1/me/getexecutions?' + querystring.stringify(idObj);
         return await this.sendRequest(method, path, null, true);
     }
 
@@ -146,7 +147,7 @@ class BitFlyer {
             let res = await r2(options).json;
             return res;
         } else {
-            let res = await r2(options);
+            let res = await r2(options).text;
             return res;
         }
     }
