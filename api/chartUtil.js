@@ -10,7 +10,6 @@ const workDir = process.cwd();
 const BitFlyer = require('./bitflyer').BitFlyer;
 const api = new BitFlyer(null, null);
 const util = require('../util');
-const LOGNAME = 'ChartUtil';
 
 ///
 /// BitFlyerRESTAPIの約定履歴からn分足のチャートをhist本作成する
