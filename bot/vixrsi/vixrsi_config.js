@@ -17,7 +17,7 @@ exports.backtest = {
 // TODO: コメントをREADMEに切り出し
 exports.trader = {
 	amount: 0.01, //トレードの単位当たりの発注数
-	leverage: 15, //レバレッジ
+	leverage: 4, //レバレッジ
 	candleSize: 1, // n分足、本番では60がおすすめ
 	delay: 10, // TODO: 注文を開始するまでにdelay秒待つ
 	entryType: 'LIMIT', // LIMIT: 指値, MARKET: 成行
