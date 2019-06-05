@@ -55,8 +55,6 @@ const updateOhlc = (execDate, price, ohlcList) => {
 		ohlcList.push(ohlc);	
 		ohlcList.shift();
 		let sec = ohlcList[ohlcList.length - 2];
-		let logMessage = `${sec[0]}, ${sec[1]}, ${sec[2]}, ${sec[3]}, ${sec[4]}`;
-        util.log(logMessage);
 	} else {
 		latestOhlc[2] = latestOhlc[2] > price ? latestOhlc[2] : price;
 		latestOhlc[3] = latestOhlc[3] < price ? latestOhlc[3] : price;
