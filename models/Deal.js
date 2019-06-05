@@ -16,7 +16,7 @@ class Deal {
         this.lot = lot;
         this.sell = -1;
         this.buy = -1;
-        this.deal_child_order_accesptance_id = '';
+        this.deal_child_order_acceptance_id = '';
         this.settle_child_order_acceptance_id = '';
         this.result = 0;
         this.state = STATES.INIT;
@@ -41,7 +41,7 @@ class Deal {
         if (this.orderType === 'BUY') this.buy = json[0].price;
         else this.sell = json[0].price;
 
-        this.deal_child_order_accesptance_id = json[0].child_order_acceptance_id;
+        this.deal_child_order_acceptance_id = json[0].child_order_acceptance_id;
 
         util.log(`${this.orderType === 'BUY' ? 'ロング' : 'ショート'}ポジションが約定しました ${json[0].price}円`);
         return json[0].price;

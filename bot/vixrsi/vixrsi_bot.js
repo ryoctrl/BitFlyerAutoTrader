@@ -195,15 +195,15 @@ const vixRSITrade = async() => {
                     prices += deal.settle()
                     amounts += deal.lot;
                 });
-                delas = [];
+                deals = [];
                 logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${amounts}BTC, 約定金額:${prices / amounts}`;
                 util.log(logMessage);
             } else if (signal === 'BUY' || signal === 'SELL') {
-                const deal = new Deal(signal, amount);
+                const deal = new Deal(signal, ORDER_SIZE);
                 const price = await deal.deal();
-                const id = deal.deal_child_order_acceptance_id;
-                const sfd = getEstrangementPercentage();
-                logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${amount}BTC, 約定価格:${price}, id:${id}, SFD:${sfd}`;
+                const dealId = deal.deal_child_order_acceptance_id;
+                //const sfd = getEstrangementPercentage();
+                logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${ORDER_SIZE}BTC, 約定価格:${price}, id:${dealId}`;//, SFD:${sfd}`;
                 util.log(logMessage);
                 deals.push(deal);
             }
