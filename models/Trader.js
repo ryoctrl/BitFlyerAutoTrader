@@ -1,6 +1,7 @@
 const { RestClient } = require('node-bitflyer');
-const BitFlyer = require('../api/bitflyer')
+const BitFlyer = require('../api/bitflyer').BitFlyer;
 const querystring = require('querystring');
+const util = require('../util');
 
 const DELAY = 1000;
 
@@ -20,13 +21,13 @@ class Trader {
         idObj.product_code = 'FX_BTC_JPY';
         const client = this.client;
         let result = await client.getExec(idObj);
-        let json = JSON.parse(result);
+        let json = result;
         let count = 0;
         while (json.length === 0 || count > 10) {
-            await new Promise(resolve => setTimeout(resolve, DELAY));
+            await util.sleep(1000);
             count++;
             result = await client.getExec(idObj);
-            json = JSON.parse(result);
+            json = result;
         }
         return result;
     }
@@ -36,7 +37,7 @@ class Trader {
         return await client.getChildorders(idObj.child_order_acceptance_id);
     }
 
-    async order(side) {
+    async order(side, size) {
         const orderCompletion = async res => {
             await new Promise(resolve => setTimeout(resolve, DELAY));
             if (res instanceof Error) {
@@ -51,9 +52,8 @@ class Trader {
                 }
                 return JSON.parse(errorMessage);
             }
-            const resJson = JSON.parse(res);
-            if (!resJson || !resJson.child_order_acceptance_id) return false;
-            return await this.getExec(resJson);
+            if(!res.child_order_acceptance_id) return false;
+            return await this.getExec(res);
         };
 
         const client = this.client;
@@ -61,7 +61,7 @@ class Trader {
             product_code: 'FX_BTC_JPY',
             child_order_type: 'MARKET',
             side: side,
-            size: this.lot,
+            size: size,
             minute_to_expire: 5000,
             time_in_force: 'GTC'
         }).then(orderCompletion);

@@ -25,8 +25,8 @@ class Deal {
 
     async _order(type) {
         const trader = this.trader;
-        const order = await this.trader.order(type);
-        return JSON.parse(order);
+        const order = await this.trader.order(type, this.lot);
+        return order;
     }
 
     async deal() {
