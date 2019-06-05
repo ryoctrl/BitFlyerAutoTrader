@@ -6,3 +6,5 @@ package-lock.json
 logs/
 *.code-workspace
 ecosystem.config.js
+.env
+
