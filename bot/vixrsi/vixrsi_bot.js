@@ -12,7 +12,7 @@ const BitFlyer = require(workDir + '/api/bitflyer').BitFlyer;
 const bfAPI = new BitFlyer(process.env.API_KEY, process.env.API_SECRET);
 const Trader = require(`${workDir}/models/Trader`);
 Trader.trader = new Trader(process.env.API_KEY, process.env.API_SECRET);
-const Deal = require(`${workDir}/models/Deal`);
+const { Deal, STATES } = require('../../models/Deal');
 
 //TODO: configのjsonを整理
 const CANDLE_SIZE = VIXConfig.trader.candleSize;
@@ -205,6 +205,7 @@ const vixRSITrade = async() => {
                 const sfd = getEstrangementPercentage();
                 logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${amount}BTC, 約定価格:${price}, id:${id}, SFD:${sfd}`;
                 util.log(logMessage);
+                deals.push(deal);
             }
             await util.sleep((interval * CANDLE_SIZE - 1) * 1000);
         }
