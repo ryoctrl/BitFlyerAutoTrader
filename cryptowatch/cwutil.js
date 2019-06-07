@@ -1,26 +1,28 @@
 // cryptowatchからn分足のOHLCを、過去hist本分取得する
-var r2 = require('r2');
-async function getOhlc(n, hist) {
-  var now = Math.ceil((new Date()).getTime() / 1000); // 秒単位
-  var beginTime = now - (n * 60) * hist;
-  n_sec = n * 60;
-  // cryptowatch format
-  url = 'https://api.cryptowat.ch/markets/bitflyer/btcfxjpy/ohlc?periods=' + n_sec + '&after=' + beginTime
-  var options = {
-    url: url,
-    method: 'GET',
-    body: null,
-    headers: {
-      'Content-Type': 'application/json'
+const axios = require('axios');
+const moment = require('moment');
+const querystring = require('querystring');
+const BASE_URL = 'https://api.cryptowat.ch/markets/bitflyer/btcfxjpy/ohlc?';
+const getOhlc = async (n, hist) => {
+    const now = moment();
+    const beginTime = now.unix() - (n * 60) * hist;
+    const nSec = 60 * n;
+    const obj = {
+        periods: nSec,
+        after: beginTime
+    };
+    const url = BASE_URL + querystring.stringify(obj);
+    const axiosOpts = {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+
     }
-  };
-  var response = await r2(url).json;
-	//TODO: node-fetch/libs/index.js:250のjsonで返される例外処理を行う
-	console.log(typeof(response));
-  var candleStr = String(n_sec)
-  // 最初と最後は不要なので捨てる
-  return response['result'][candleStr].slice(1, -1);
-}
+    const response = await axios.get(url, axiosOpts).then(res => res.data);
+    const candleStr = String(nSec);
+    return response['result'][candleStr].slice(1, -1);
+};
 
 module.exports.getOhlc = getOhlc;
 
