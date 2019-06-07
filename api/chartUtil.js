@@ -10,6 +10,7 @@ const workDir = process.cwd();
 const BitFlyer = require('./bitflyer').BitFlyer;
 const api = new BitFlyer(null, null);
 const util = require('../util');
+const moment = require('moment');
 
 ///
 /// BitFlyerRESTAPIの約定履歴からn分足のチャートをhist本作成する
@@ -19,10 +20,18 @@ const getOhlc = async(n, hist) => {
 	ohlcList = [];
 	ohlc = [];
 	let before = 0;
+    let count = 0;
 	while(ohlcList.length < hist) {
+        if(count > 400) {
+            util.log('API呼び出し上限に達する恐れがあるため5分間休止します');
+            util.log('現在の足数:' + ohlcList.length);
+            await util.sleep(1000 * 60 * 5);
+            count = 0;
+        }
 		let executions = await api.getExecutions(null, 500, before, null);
+        count++;
 		for(const execution of executions) {
-			let ts = generateTimestamp(execution.exec_date);
+			let ts = generateTimestamp(n, execution.exec_date);
 			if(ohlc[0] && ohlc[0] != ts) {
 				ohlcList.unshift(ohlc);
 				ohlc = [];
@@ -66,9 +75,14 @@ const updateOhlc = (execDate, price, ohlcList) => {
 //
 // APIのレスポンスに付属している執行時間からプログラム内で用いるタイムスタンプに変換する
 //
-const generateTimestamp = (execDate) => {
-	let date = new Date(execDate);
-	return Date.parse(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), 0, 0))) / 1000;
+const generateTimestamp = (n, execDate) => {
+    const date = moment(execDate + 'Z');
+    if(n < 60) {
+        return date.minute(Math.floor(date.minutes() / n) * n).second(0).milliseconds(0).unix();
+    } else {
+        let hourN = Math.floor(n / 60);
+        return date.hour(Math.floor(date.hours() / hourN) * hourN).minute(0).second(0).milliseconds(0).unix();
+    }
 };
 
 module.exports.getOhlc = getOhlc;

@@ -80,7 +80,7 @@ let position = 'CLOSED';
 //Strategyから渡されるシグナル
 let signal = 'HOLD';
 //動作間隔 == ローソク足間隔
-let interval = 60;
+let interval = 60 * CANDLE_SIZE;
 //ロスカット期間のカウンタ
 let losscuttingCount = 0;
 //ロギング用のメッセージ
