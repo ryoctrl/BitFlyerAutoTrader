@@ -199,16 +199,20 @@ const vixRSITrade = async() => {
                 deals = [];
                 logMessage = `【手仕舞】ポジション:${position}, 取引枚数:${amounts}BTC, 約定金額:${prices / amounts}`;
                 util.log(logMessage);
-            } else if (signal === 'BUY' || signal === 'SELL') {
-                const deal = new Deal(signal, ORDER_SIZE);
-                const price = await deal.deal();
-                const dealId = deal.deal_child_order_acceptance_id;
-                //const sfd = getEstrangementPercentage();
-                logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${ORDER_SIZE}BTC, 約定価格:${price}, id:${dealId}`;//, SFD:${sfd}`;
-                util.log(logMessage);
-                deals.push(deal);
+            } else if ((signal === 'BUY' || signal === 'SELL')) {
+                const canEntryObject = util.botUtils.canEntry();
+                if(!canEntryObject.canEntry) {
+                    util.log(canEntryObject.message);
+                } else {
+                    const deal = new Deal(signal, ORDER_SIZE);
+                    const price = await deal.deal();
+                    const dealId = deal.deal_child_order_acceptance_id;
+                    logMessage = `シグナル:${signal}, ポジション:${position}, 取引枚数:${ORDER_SIZE}BTC, 約定価格:${price}, id:${dealId}`;
+                    util.log(logMessage);
+                    deals.push(deal);
+                }
             }
-            await util.sleep((interval * CANDLE_SIZE - 1) * 1000);
+            await util.sleep(interval * 1000);
         }
     } catch (error) {
         util.log(error);

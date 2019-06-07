@@ -1,4 +1,5 @@
 module.exports = {
     sleep: require('./sleep'),
-    log: require('./logger')
+    log: require('./logger'),
+    botUtils: require('./botUtil'),
 }
