@@ -12,11 +12,10 @@ const api = new BitFlyer(null, null);
 const util = require('../util');
 const moment = require('moment');
 
-///
-/// BitFlyerRESTAPIの約定履歴からn分足のチャートをhist本作成する
-///
+/**
+ * BitFlyerRESTAPIの約定履歴エンドポイントを用いてn分足チャートをhist本作成する.
+ */
 const getOhlc = async(n, hist) => {
-	//n = 1(分足), hist= 72(本分)
 	ohlcList = [];
 	ohlc = [];
 	let before = 0;
