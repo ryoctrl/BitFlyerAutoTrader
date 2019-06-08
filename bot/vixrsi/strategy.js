@@ -6,6 +6,8 @@ const SD = require('technicalindicators').SD; // 標準偏差
 const SMA = require('technicalindicators').SMA; // SMA
 const WEMA = require('technicalindicators').WEMA; // Wilders Smoothing
 
+const util = require('../../util');
+
 
 // ストラテジーの設定
 const VIXConfig = require('./vixrsi_config.js');
@@ -45,6 +47,14 @@ function vixRsiSignal(ohlc, position) {
     const highRev = CwUtil.getHighs(ohlc).reverse();
     const lowRev = CwUtil.getLows(ohlc).reverse();
     const closeRev = CwUtil.getCloses(ohlc).reverse();
+
+    const begin = ohlc[0][0];
+    const end = ohlc[ohlc.length - 1][0];
+
+
+    util.log(`${begin}, ${end}`);
+    const log = `${moment.unix(begin).format('YYYY/MM/DD HH:mm:ss')} - ${moment.unix(end).format('YYYY/MM/DD HH:mm:ss')}`;
+    util.log(log);
 
     var wvf = []; // Williams Vix Fix
     // 合計長さの最小はlb+pd e.g.72 closeRev.length > lb + pb

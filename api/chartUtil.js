@@ -49,9 +49,9 @@ const getOhlc = async(n, hist) => {
 ///
 /// 与えられた執行時間, 価格からOHLCを更新する
 ///
-const updateOhlc = (execDate, price, ohlcList) => {
+const updateOhlc = (n, execDate, price, ohlcList) => {
 	if(ohlcList.length == 0) return;
-	let ts = generateTimestamp(execDate);
+	let ts = generateTimestamp(n, execDate);
 	let latestOhlc = ohlcList[ohlcList.length - 1]
 	if(latestOhlc[0] != ts) {
 		let ohlc = [];
@@ -75,7 +75,21 @@ const updateOhlc = (execDate, price, ohlcList) => {
 // APIのレスポンスに付属している執行時間からプログラム内で用いるタイムスタンプに変換する
 //
 const generateTimestamp = (n, execDate) => {
-    const date = moment(execDate + 'Z');
+    let date;
+    if(typeof(execDate) === 'string' && execDate.length === 10 && Number.isNaN(Number(execDate))) {
+        date = moment.unix(execDate);
+    } else {
+        let dateStr = execDate + 'Z';
+        if(typeof(execDate) === 'string' && execDate.endsWith('Z')) {
+            dateStr = execDate;
+        }
+        try {
+            date = moment(dateStr);
+        } catch(e) {
+            util.log(e.toString());
+            util.log(execDate);
+        }
+    }
     if(n < 60) {
         return date.minute(Math.floor(date.minutes() / n) * n).second(0).milliseconds(0).unix();
     } else {

@@ -154,7 +154,7 @@ const positionExitProcess = async() => {
 
 const updateOhlc = (execDate, price) => {
     if (ohlc.length != PD + LB) return;
-    CwUtil.updateOhlc(execDate, price, ohlc);
+    CwUtil.updateOhlc(CANDLE_SIZE, execDate, price, ohlc);
 
 };
 
