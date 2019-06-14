@@ -1,4 +1,5 @@
 const r2 = require('r2');
+const axios = require('axios');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
 const querystring = require('querystring');
@@ -126,13 +127,12 @@ class BitFlyer {
     }
 
     async sendRequest(method, path, body, isJson) {
-        let ts = Date.now().toString();
-        body = JSON.stringify(body);
-        let uri = URL + path;
+        const ts = Date.now().toString();
+        const uri = URL + path;
         let text = ts + method + path;
-        if (method == 'POST') text += body;
-        let sign = crypto.createHmac('sha256', this.API_SECRET).update(text).digest('hex');
-        let options = {
+        if (method == 'POST') text += JSON.stringify(body);
+        const sign = crypto.createHmac('sha256', this.API_SECRET).update(text).digest('hex');
+        const options = {
             url: uri,
             method: method,
             headers: {
@@ -142,13 +142,23 @@ class BitFlyer {
                 'Content-Type': 'application/json',
             }
         }
-        if (method == 'POST') options.body = body;
+        if (method == 'POST') options.data = body;
         if (isJson) {
-            let res = await r2(options).json;
-            return res;
+            return await axios(options)
+                .then(res => res.data)
+                .catch(err => {
+                    console.error(err.toString());
+                    console.error(err.response.data);
+                    return null;
+                });
         } else {
-            let res = await r2(options).text;
-            return res;
+            return await axios(options)
+                .then(res => res.data)
+                .catch(err => {
+                    console.error(err.toString());
+                    console.error(err.response.data);
+                    return null;
+                });
         }
     }
 }
