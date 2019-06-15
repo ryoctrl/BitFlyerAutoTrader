@@ -1,6 +1,4 @@
-const r2 = require('r2');
 const axios = require('axios');
-const fetch = require('node-fetch');
 const crypto = require('crypto');
 const querystring = require('querystring');
 
@@ -122,8 +120,7 @@ class BitFlyer {
 
     async sendPublicRequest(method, path, body) {
         let url = URL + path;
-        let res = await fetch(url);
-        return res.json();
+        return await axios.get(url).then(res => res.data);
     }
 
     async sendRequest(method, path, body, isJson) {
