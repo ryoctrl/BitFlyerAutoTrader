@@ -40,6 +40,7 @@ class Trader {
     async order(side, size) {
         const orderCompletion = async res => {
             await new Promise(resolve => setTimeout(resolve, DELAY));
+            if(res == null) return false;
             if (res instanceof Error) {
                 let error = res.toString();
                 error = error.split(' ');
