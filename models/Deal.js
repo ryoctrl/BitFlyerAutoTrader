@@ -31,7 +31,7 @@ class Deal {
 
     async deal() {
         const json = await this._order(this.orderType);
-        if (json.status && json.status < 0) {
+        if (!json || (json.status && json.status < 0)) {
             this.state = STATES.ERROR_DEAL;
             this.message = '発注が約定しませんでした';
             util.log('発注が約定しませんでした');
@@ -53,7 +53,7 @@ class Deal {
             return 0;
         }
         const json = await this._order(this.settleType);
-        if (json.status && json.status < 0) {
+        if (!json || (json.status && json.status < 0)) {
             this.state = STATES.ERROR_SETTLE;
             this.message = '決済が約定しませんでした';
             util.log('決済が約定しませんでした');

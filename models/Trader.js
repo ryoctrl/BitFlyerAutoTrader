@@ -23,7 +23,7 @@ class Trader {
         let result = await client.getExec(idObj);
         let json = result;
         let count = 0;
-        while (json.length === 0 || count > 10) {
+        while(json.length === 0 && count < 10) {
             await util.sleep(1000);
             count++;
             result = await client.getExec(idObj);
