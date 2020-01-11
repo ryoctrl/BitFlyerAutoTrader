@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const querystring = require('querystring');
+const util = require('../util');
 
 const URL = 'https://api.bitflyer.jp';
 
@@ -145,7 +146,8 @@ class BitFlyer {
                 .then(res => res.data)
                 .catch(err => {
                     console.error(err.toString());
-                    console.error(err.response.data);
+                    if(err.message) util.log(err.message);
+                    if(err.response && err.response.data) util.log(err.response.data);
                     return null;
                 });
         } else {
@@ -153,7 +155,8 @@ class BitFlyer {
                 .then(res => res.data)
                 .catch(err => {
                     console.error(err.toString());
-                    console.error(err.response.data);
+                    if(err.message) util.log(err.message);
+                    if(err.response && err.response.data) util.log(err.response.data);
                     return null;
                 });
         }
